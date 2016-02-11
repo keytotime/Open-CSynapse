@@ -1,2 +1,2 @@
 # CSynapse
-A (hopefully) non-sentient neural network.
+A (hopefully) non-sentient spiking neural network.
