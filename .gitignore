@@ -1,0 +1,4 @@
+# ignore .pyc files
+*.pyc
+# python3 cache directory
+__pycache__/
