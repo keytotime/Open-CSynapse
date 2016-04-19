@@ -6,24 +6,18 @@ A (hopefully) non-sentient spiking neural network.
 ### Scikitlearn is a machine learning package needed for our project.
 
 #### Scikitlearn installation instructions
-* First you need numpy and scipy (linux) 
+* First you need numpy and scipy 
+Linux 
 ```
-
 sudo apt-get install python-numpy python-scipy python-matplotlib ipython ipython-notebook python-pandas python-sympy python-nose
-
-
 ``` 
-(mac)
+Mac
 ``` 
-
 sudo port install py27-numpy py27-scipy py27-matplotlib py27-ipython +notebook py27-pandas py27-sympy py27-nose
-
 ``` 
 * Then you can install scikitlearn:
 ```
-
 pip install -U scikit-learn
-
 ```
 ### OpenCV is a computer vision/machine learning library needed for our project.
 #### OpenCV installation instructions for MAC 
