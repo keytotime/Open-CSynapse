@@ -2,6 +2,7 @@
 
 from bottle import *
 import MySQLdb
+from tasks import runAlgorithm
 
 def getDB():
   db = MySQLdb.connect("localhost","csynapse","MyMZhdiEvY33WbqqAsFnLkcoQqRbacxo", "csynapse")
@@ -37,6 +38,7 @@ def postTest():
   savePath = "/var/csynapse/uploads/%s.csv" % (newID)
   upload.save(savePath)
   db.close()
+  runAlgorithm.delay(newID, algorithm)
   return "New ID: <a href=\"/app/check?id=%s\">%s</a>" % (newID, newID)
 
 @route('/check')
@@ -45,11 +47,11 @@ def check():
   cursor = db.cursor()
   ret = ""
   for check_id in request.params.getall('id'):
-    select_sql = "SELECT identifier, algorithm, complete FROM Requests WHERE identifier=\"%s\"" % (check_id)
+    select_sql = "SELECT identifier, algorithm, complete, return_object FROM Requests WHERE identifier=\"%s\"" % (check_id)
     cursor.execute(select_sql)
     results = cursor.fetchall()
     for result in results:
-      ret += "ID: %s, Algorithm %s, Status: " % (result[0], result[1])
+      ret += "ID: %s, Algorithm %s, Return Object: %s, Status: " % (result[0], result[1], result[3])
       if result[2]==1:
         ret += "Complete"
       else:
