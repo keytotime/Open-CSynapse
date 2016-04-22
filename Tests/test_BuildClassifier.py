@@ -48,6 +48,41 @@ class AdaBoostTest(IrisDataTestCase):
 		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
 		print('adabost result: ' + str(result))
 
+class RandomForestTest(IrisDataTestCase):
+	def runTest(self):
+		rForest = 'randomForest'
+		kC = getDiscreetClassifier(rForest)
+		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Random Forest result: ' + str(result))
+
+class PerceptronTest(IrisDataTestCase):
+	def runTest(self):
+		preceptron = 'perceptron'
+		kC = getDiscreetClassifier(preceptron)
+		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Perceptron result: ' + str(result))
+
+class NearestCentroidTest(IrisDataTestCase):
+	def runTest(self):
+		nCentroid = 'nearestCentroid'
+		kC = getDiscreetClassifier(nCentroid)
+		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Nearest Centroid result: ' + str(result))
+
+class PassiveAggressiveTest(IrisDataTestCase):
+	def runTest(self):
+		pa = 'passiveAggressive'
+		kC = getDiscreetClassifier(pa)
+		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Passive Aggressive result: ' + str(result))
+
+class decisionTreeTest(IrisDataTestCase):
+	def runTest(self):
+		dt = 'decisionTree'
+		kC = getDiscreetClassifier(dt)
+		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Decision Tree result: ' + str(result))
+
 # class NeuralNetTest(IrisDataTestCase):
 # 	def runTest(self):
 # 		net = 'neuralNet'
