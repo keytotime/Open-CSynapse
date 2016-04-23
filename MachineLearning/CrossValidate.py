@@ -2,6 +2,8 @@
 # Used to get accuracy scores for the given algorithm
 
 from sklearn import cross_validation
+from TimeFunction import timeFunction
+from collections import namedtuple
 
 # Does crossvalidation by randomling choosing samples from the data to hold out
 def doShuffleCrossValidation(classifier, data, target, testSize = 0.1, epochs = 100):
@@ -12,11 +14,16 @@ def doFoldCrossValidation(classifier, data, target, numFolds = 10, shuffleFirst=
 	cxFold = cross_validation.KFold(len(data), n_folds=numFolds, shuffle=shuffleFirst)
 	return getMeanScore(classifier, data, target, cxFold)
 
+
 # Gets the mean score of cross validation with the provided classifier and type of
 # crossvalidation
 # Params: classifier - classifier used to predict labels
 # typeCv - type of crossvalidation to perform on data
+# Returns named tuple (meanScore, timeTaken)
 def getMeanScore(classifier, data, target, typeCv):
-	scores = cross_validation.cross_val_score(classifier, data, target, cv=typeCv)
-	return scores.mean()
+	scoresTime = timeFunction(lambda: cross_validation.cross_val_score(classifier, data, target, cv=typeCv))
+	# Named tuple for (meanScore, time)
+	MeanTime = namedtuple('MeanTime','meanScore,timeTaken')
+	return MeanTime(scoresTime.result.mean(), scoresTime.timeTaken)
+	
 

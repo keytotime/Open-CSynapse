@@ -22,9 +22,9 @@ class CleanTest(LoadFileTestCase):
 	def runTest(self):
 		data = cleanData(self.filename)
 		knearest = getDiscreetClassifier('knearest')
-		result = CV.doShuffleCrossValidation(knearest, data.data, data.target)
-		print('knearest result: ' + str(result))
-
+		resultTime = CV.doShuffleCrossValidation(knearest, data.data, data.target)
+		print('knearest result: ' + str(resultTime.meanScore) + ' Time taken: ' + str(resultTime.timeTaken))
+		self.assertTrue(resultTime.timeTaken > 0)
 
 if __name__ == '__main__':
     unittest.main()

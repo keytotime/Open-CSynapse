@@ -1,2 +1,2 @@
-To run all tests in a python directory type:
-python -m unittest discover <test_directory>
+To run all tests:
+python -m unittest discover Tests/

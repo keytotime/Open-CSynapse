@@ -17,71 +17,71 @@ class SvmTest(IrisDataTestCase):
 	def runTest(self):
 		svm = 'svm'
 		svmC = getDiscreetClassifier(svm)
-		result = CV.doShuffleCrossValidation(svmC, self.data.data, self.data.target)
-		print('Svm result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(svmC, self.data.data, self.data.target)
+		print('Svm result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 class KNearestTest(IrisDataTestCase):
 	def runTest(self):
 		knearest = 'knearest'
 		kC = getDiscreetClassifier(knearest)
-		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
-		print('knearest result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('knearest result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 class GuassianTest(IrisDataTestCase):
 	def runTest(self):
 		gauss = 'guassNB'
 		kC = getDiscreetClassifier(gauss)
-		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
-		print('Guassian Naive Bayes result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Guassian Naive Bayes result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 class SGDTest(IrisDataTestCase):
 	def runTest(self):
 		sgd = 'sgd'
 		kC = getDiscreetClassifier(sgd)
-		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
-		print('SGD result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('SGD result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 class AdaBoostTest(IrisDataTestCase):
 	def runTest(self):
 		adabost = 'adaBoost'
 		kC = getDiscreetClassifier(adabost)
-		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
-		print('adabost result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('adabost result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 class RandomForestTest(IrisDataTestCase):
 	def runTest(self):
 		rForest = 'randomForest'
 		kC = getDiscreetClassifier(rForest)
-		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
-		print('Random Forest result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Random Forest result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 class PerceptronTest(IrisDataTestCase):
 	def runTest(self):
 		preceptron = 'perceptron'
 		kC = getDiscreetClassifier(preceptron)
-		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
-		print('Perceptron result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Perceptron result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 class NearestCentroidTest(IrisDataTestCase):
 	def runTest(self):
 		nCentroid = 'nearestCentroid'
 		kC = getDiscreetClassifier(nCentroid)
-		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
-		print('Nearest Centroid result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Nearest Centroid result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 class PassiveAggressiveTest(IrisDataTestCase):
 	def runTest(self):
 		pa = 'passiveAggressive'
 		kC = getDiscreetClassifier(pa)
-		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
-		print('Passive Aggressive result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Passive Aggressive result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 class decisionTreeTest(IrisDataTestCase):
 	def runTest(self):
 		dt = 'decisionTree'
 		kC = getDiscreetClassifier(dt)
-		result = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
-		print('Decision Tree result: ' + str(result))
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Decision Tree result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 # class NeuralNetTest(IrisDataTestCase):
 # 	def runTest(self):
