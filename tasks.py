@@ -1,12 +1,19 @@
 from celery import Celery
 import MySQLdb
 import json
+from MachineLearning import BuildClassifier.getDiscreetClassifier
+from MachineLearning import Clean.cleanData
+from MachineLearning import CrossValidate.doShuffleCrossValidation
 
 app = Celery('tasks', broker='amqp://guest@localhost//')
 
 def getDB():
   db = MySQLdb.connect("localhost","csynapse","MyMZhdiEvY33WbqqAsFnLkcoQqRbacxo", "csynapse")
   return db
+
+# Returns path to training data on filesystem
+def buildPath(identifier):
+  return '/var/csynapse/uploads/' + identifier + '.csv'
 
 @app.task
 def runAlgorithm(identifier, algorithm):
@@ -15,6 +22,12 @@ def runAlgorithm(identifier, algorithm):
     ret["status"] = 1
     ret["accuracy"] = 0.927
     ret["notes"] = "This is just a test algorithm"
+  # Instantiate Classifier
+  alg = getDiscreetClassifier(algorithm)
+  # Get data from file
+  data = cleanData(buildPath(identifier))
+  # Run Cross Validation
+  meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
   db = getDB()
   cursor = db.cursor()
   update_sql = "UPDATE Requests SET complete=1, return_object='%s' WHERE identifier='%s' AND algorithm='%s'" % (json.dumps(ret), identifier, algorithm)

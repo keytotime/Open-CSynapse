@@ -1,2 +1,2 @@
-To run all tests:
+Run all tests:
 python -m unittest discover Tests/
