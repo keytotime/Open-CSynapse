@@ -22,12 +22,16 @@ def runAlgorithm(identifier, algorithm):
     ret["status"] = 1
     ret["accuracy"] = 0.927
     ret["notes"] = "This is just a test algorithm"
-  # Instantiate Classifier
-  alg = getDiscreetClassifier(algorithm)
-  # Get data from file
-  data = cleanData(buildPath(identifier))
-  # Run Cross Validation
-  meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
+  else:
+    # Instantiate Classifier
+    alg = getDiscreetClassifier(algorithm)
+    # Get data from file
+    data = cleanData(buildPath(identifier))
+    # Run Cross Validation
+    meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
+    ret['score'] = meanScoreTime.meanScore
+    ret['time'] = meanScoreTime.timeTaken
+
   db = getDB()
   cursor = db.cursor()
   update_sql = "UPDATE Requests SET complete=1, return_object='%s' WHERE identifier='%s' AND algorithm='%s'" % (json.dumps(ret), identifier, algorithm)
