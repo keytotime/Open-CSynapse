@@ -1,9 +1,9 @@
 from celery import Celery
 import MySQLdb
 import json
-from MachineLearning import BuildClassifier.getDiscreetClassifier
-from MachineLearning import Clean.cleanData
-from MachineLearning import CrossValidate.doShuffleCrossValidation
+from MachineLearning.BuildClassifier import getDiscreetClassifier
+from MachineLearning.Clean import cleanData
+from MachineLearning.CrossValidate import doShuffleCrossValidation
 
 app = Celery('tasks', broker='amqp://guest@localhost//')
 
