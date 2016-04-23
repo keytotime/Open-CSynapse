@@ -82,19 +82,19 @@ def postNew():
   data = cursor.fetchone()
   #cursor.execute("use csynapse")
   newID = data[0]
+  upload = request.files.get('upload')
+  savePath = "/var/csynapse/uploads/%s.csv" % (newID)
+  upload.save(savePath)
   for algorithm in request.params.getall('algorithm'):
     insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, algorithm)
     print insertSQL
     cursor.execute(insertSQL)
+    runAlgorithm.delay(newID, algorithm)
   description = request.params.get('description')
   insertSQL = "INSERT INTO RequestDescription (identifier, description) VALUES ('%s', '%s')" % (newID, description)
   cursor.execute(insertSQL)
   db.commit()
-  upload = request.files.get('upload')
-  savePath = "/var/csynapse/uploads/%s.csv" % (newID)
-  upload.save(savePath)
   db.close()
-  runAlgorithm.delay(newID, algorithm)
   if request.params.get("redirect") != None and request.params.get("redirect") != "":
     redirect(request.params.get("redirect")+"?id=%s" %(newID))
   else:
