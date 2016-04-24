@@ -24,7 +24,8 @@ def runAlgorithm(identifier, algorithm):
     ret["accuracy"] = 0.927
     ret["notes"] = "This is just a test algorithm"
   elif algorithm == 'graphData':
-    ret = get2DPoints(buildPath(identifier))
+    data = cleanData(buildPath(identifier))
+    ret = get2DPoints(data.data, data.target)
   else:
     # Instantiate Classifier
     alg = getDiscreetClassifier(algorithm)
