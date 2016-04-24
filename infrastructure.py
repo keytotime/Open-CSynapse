@@ -85,6 +85,8 @@ def postNew():
   upload = request.files.get('upload')
   savePath = "/var/csynapse/uploads/%s.csv" % (newID)
   upload.save(savePath)
+  # Get data points from training data
+  runAlgorithm.delay(newID, 'graphData')
   for algorithm in request.params.getall('algorithm'):
     insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, algorithm)
     print insertSQL

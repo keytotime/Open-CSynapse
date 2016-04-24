@@ -4,6 +4,7 @@ import json
 from MachineLearning.BuildClassifier import getDiscreetClassifier
 from MachineLearning.Clean import cleanData
 from MachineLearning.CrossValidate import doShuffleCrossValidation
+from MachineLearning.GetDataPoints import get2DPoints
 
 app = Celery('tasks', broker='amqp://guest@localhost//')
 
@@ -22,6 +23,8 @@ def runAlgorithm(identifier, algorithm):
     ret["status"] = 1
     ret["accuracy"] = 0.927
     ret["notes"] = "This is just a test algorithm"
+  elif algorithm == 'graphData':
+    ret = get2DPoints(buildPath(identifier))
   else:
     # Instantiate Classifier
     alg = getDiscreetClassifier(algorithm)

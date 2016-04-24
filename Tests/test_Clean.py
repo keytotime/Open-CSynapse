@@ -3,8 +3,6 @@
 
 # Needed to be able to import modules from the parent directory
 import os
-
-
 import MachineLearning
 from MachineLearning.Clean import cleanData
 from MachineLearning.BuildClassifier import getDiscreetClassifier
