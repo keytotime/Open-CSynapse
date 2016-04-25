@@ -8,6 +8,7 @@ from MachineLearning.BuildClassifier import getDiscreetClassifier
 import MachineLearning.CrossValidate as CV
 import unittest
 import os
+import json
 
 class LoadFileTestCase(unittest.TestCase):
 	def setUp(self):
@@ -20,6 +21,9 @@ class DataPointsTest(LoadFileTestCase):
 		data = cleanData(self.filename)
 		result = get2DPoints(data.data, data.target)
 		self.assertTrue(len(result) > 0)
+		jsonResult = json.dumps(result)
+		reloaded = json.loads(jsonResult)
+		self.assertTrue(len(reloaded) > 0)
 
 if __name__ == '__main__':
     unittest.main()

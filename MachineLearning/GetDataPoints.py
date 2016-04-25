@@ -19,7 +19,8 @@ def packPoints(data, labels):
 	points = {}
 	# Iterate over points adding them to dictionary
 	for i in range(len(data)):
-		cPoint = data[i]
+		# Convert np array to list so it can be serialized
+		cPoint = data[i].tolist()
 		cLabel = labels[i]
 		if(cLabel in points.keys()):
 			points[cLabel].append(cPoint)

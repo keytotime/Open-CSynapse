@@ -1,2 +1,2 @@
 Run all tests:
-python -m unittest discover Tests/
+./runTests.sh
