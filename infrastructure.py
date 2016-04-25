@@ -87,6 +87,10 @@ def postNew():
   upload.save(savePath)
   # Get data points from training data
   runAlgorithm.delay(newID, 'graphData')
+  # Put this into data base
+  insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, 'graphData')
+  cursor.execute(insertSQL)
+
   for algorithm in request.params.getall('algorithm'):
     insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, algorithm)
     print insertSQL
