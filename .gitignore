@@ -2,3 +2,4 @@
 *.pyc
 # python3 cache directory
 __pycache__/
+venv

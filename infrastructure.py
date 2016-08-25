@@ -20,6 +20,10 @@ def getDescription(identifier):
   else:
     return ""
 
+@get('/healthcheck')
+def healthCheck():
+	return json.dumps('200 OK')
+
 @get('/algorithms')
 def getAlgorithms():
   db = getDB()
