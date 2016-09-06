@@ -6,10 +6,10 @@ from MachineLearning.Clean import cleanData
 from MachineLearning.CrossValidate import doShuffleCrossValidation
 from MachineLearning.GetDataPoints import get2DPoints
 
-app = Celery('tasks', broker='amqp://guest@localhost//')
+app = Celery('tasks', broker='amqp://guest@queue//')
 
 def getDB():
-  db = MySQLdb.connect("localhost","csynapse","MyMZhdiEvY33WbqqAsFnLkcoQqRbacxo", "csynapse")
+  db = MySQLdb.connect("db","csynapse","MyMZhdiEvY33WbqqAsFnLkcoQqRbacxo", "csynapse")
   return db
 
 # Returns path to training data on filesystem
