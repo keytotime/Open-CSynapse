@@ -3,3 +3,5 @@
 # python3 cache directory
 __pycache__/
 venv
+*.DS_Store
+.DS_Store
