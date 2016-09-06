@@ -4,15 +4,20 @@ from bottle import *
 import MySQLdb
 from tasks import runAlgorithm
 import json
+import pymongo
+import gridfs
+
+#prefix = "/app"
+prefix = ""
 
 def getDB():
-  db = MySQLdb.connect("localhost","csynapse","MyMZhdiEvY33WbqqAsFnLkcoQqRbacxo", "csynapse")
+  db = MySQLdb.connect("db","csynapse","MyMZhdiEvY33WbqqAsFnLkcoQqRbacxo", "csynapse")
   return db
 
 def getDescription(identifier):
   db = getDB()
   cursor = db.cursor()
-  select_sql = "SELECT description FROM RequestDescription WHERE identifier='%s'" % (identifier)
+  select_sql = "SELECT description FROM RequestInformation WHERE identifier='%s'" % (identifier)
   cursor.execute(select_sql)
   result = cursor.fetchone()
   if result != None:
@@ -70,7 +75,7 @@ def getNew():
   description <input type="text" name="description" /><br />
   Algorithms: <br />"""+algorithms_text+"""
   Test File: <input type="file" name="upload" /><br />
-  <input type="hidden" name="redirect" value="/app/check" />
+  <input type="hidden" name="redirect" value=\""""+prefix+"""/check" />
   <input type="submit" value="Submit">
   
   </form>
@@ -87,8 +92,12 @@ def postNew():
   #cursor.execute("use csynapse")
   newID = data[0]
   upload = request.files.get('upload')
-  savePath = "/var/csynapse/uploads/%s.csv" % (newID)
-  upload.save(savePath)
+  mdb = pymongo.MongoClient('mongo', 27017).csynapse_files
+  fs = gridfs.GridFS(mdb)
+  #print dir(upload)
+  mongo_id = fs.put(upload.file)
+  #savePath = "/var/csynapse/uploads/%s.csv" % (newID)
+  #upload.save(savePath)
   # Get data points from training data
   runAlgorithm.delay(newID, 'graphData')
   # Put this into data base
@@ -97,18 +106,19 @@ def postNew():
 
   for algorithm in request.params.getall('algorithm'):
     insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, algorithm)
-    print insertSQL
+    #print insertSQL
     cursor.execute(insertSQL)
     runAlgorithm.delay(newID, algorithm)
   description = request.params.get('description')
-  insertSQL = "INSERT INTO RequestDescription (identifier, description) VALUES ('%s', '%s')" % (newID, description)
+  #print mongo_id
+  insertSQL = "INSERT INTO RequestInformation (identifier, description, mongo_id) VALUES ('%s', '%s', '%s')" % (newID, description, mongo_id)
   cursor.execute(insertSQL)
   db.commit()
   db.close()
   if request.params.get("redirect") != None and request.params.get("redirect") != "":
     redirect(request.params.get("redirect")+"?id=%s" %(newID))
   else:
-    return "New ID: <a href=\"/app/check?id=%s\">%s</a>" % (newID, newID)
+    return "New ID: <a href=\""+prefix+"/check?id=%s\">%s</a>" % (newID, newID)
 
 @route('/check')
 def check():
@@ -151,11 +161,11 @@ def getAll():
   results = cursor.fetchall()
   if request.params.get('human_readable') == "1":
     for result in results:
-      ret += "<a href=\"/app/check?id=%s\">%s</a><br />" % (result[0], result[0])
+      ret += "<a href=\""+prefix+"/check?id=%s\">%s</a><br />" % (result[0], result[0])
   else:
     res = []
     for result in results:
-      print result[0]
+      #print result[0]
       res.append(result[0])
     ret_obj = {}
     ret_obj["ids"] = res
@@ -165,8 +175,8 @@ def getAll():
 @route("/")
 def index():
   links = """
-  <a href="/app/all?human_readable=1">All Available Requests</a><br />
-  <a href="/app/new">Submit new Request</a><br />
+  <a href=\""""+prefix+"""/all?human_readable=1">All Available Requests</a><br />
+  <a href=\""""+prefix+"""/new">Submit new Request</a><br />
   """
   return links
 
