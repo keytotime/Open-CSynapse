@@ -27,3 +27,14 @@ To run the server:
 ```
 python infrastructure.py
 ```
+
+# Running Tests
+'''
+./runTests.sh
+'''
+
+## Run Individual Test
+### cd into Tests
+'''
+python -m unittest fileName.ClassName.methodName
+'''

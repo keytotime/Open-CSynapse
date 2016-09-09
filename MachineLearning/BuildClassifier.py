@@ -1,5 +1,8 @@
 # Sam Callister April 18, 2016
 # Builder method to return classifiers
+import sys
+sys.path.insert(0, '../')
+
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
 from sklearn.naive_bayes import GaussianNB
@@ -7,6 +10,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.linear_model import SGDClassifier, PassiveAggressiveClassifier
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 from sklearn.linear_model import Perceptron
+
 # Returns the classfier corresponding to name
 # Params: name - name of classifier to return
 # numberOfLabels - number of unique labels in data

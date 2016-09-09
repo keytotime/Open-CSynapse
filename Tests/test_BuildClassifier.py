@@ -2,6 +2,8 @@
 # Used to Ensure BuildClassifier and CrossValidate are working
 
 # Needed to be able to import modules from the parent directory
+import sys
+sys.path.insert(0, '../')
 import MachineLearning
 from MachineLearning.Clean import cleanData
 from MachineLearning.BuildClassifier import getDiscreetClassifier

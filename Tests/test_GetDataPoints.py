@@ -1,6 +1,8 @@
 # Sam Callister April 23, 2016
 # Used to Ensure GetData Points works correctly
 
+import sys
+sys.path.insert(0, '../')
 import MachineLearning
 from MachineLearning.GetDataPoints import get2DPoints
 from MachineLearning.Clean import cleanData
@@ -9,6 +11,7 @@ import MachineLearning.CrossValidate as CV
 import unittest
 import os
 import json
+
 
 class LoadFileTestCase(unittest.TestCase):
 	def setUp(self):
