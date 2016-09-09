@@ -5,10 +5,11 @@ import json
 from MachineLearning.BuildClassifier import getDiscreetClassifier
 from MachineLearning.Clean import cleanData
 from MachineLearning.CrossValidate import doShuffleCrossValidation
-from MachineLearning.GetDataPoints import get2DPoints
+from MachineLearning.GetDataPoints import getDataPoints
 import pymongo
 import gridfs
 from bson.objectid import ObjectId
+
 
 app = Celery('tasks', broker='amqp://guest@queue//')
 
@@ -53,7 +54,7 @@ def runAlgorithm(identifier, algorithm):
     ret["notes"] = "This is just a test algorithm"
   elif algorithm == 'graphData':
     data = cleanData(buildPath(identifier))
-    ret = get2DPoints(data.data, data.target)
+    ret = getDataPoints(data.data, data.target,2)
   else:
     # Instantiate Classifier
     alg = getDiscreetClassifier(algorithm)

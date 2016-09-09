@@ -1,7 +1,10 @@
 # Sam Callister April 18, 2016
 # Used to Ensure Clean is working and it can feed data into a classifier
 
-# Needed to be able to import modules from the parent directory
+# Add parent directory to python path to enable the running of single 
+# Tests for this directory
+import sys
+sys.path.insert(0,'..')
 import os
 import MachineLearning
 from MachineLearning.Clean import cleanData
@@ -12,7 +15,10 @@ import unittest
 
 class LoadFileTestCase(unittest.TestCase):
 	def setUp(self):
-		locationOfFile = os.path.dirname(__file__) + '/irisData.txt'
+		locationOfFile = os.path.dirname(__file__)
+		if(locationOfFile != ''):
+			locationOfFile += '/'
+		locationOfFile +='irisData.txt'
 		self.filename = locationOfFile
 
 

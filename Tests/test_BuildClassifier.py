@@ -1,6 +1,10 @@
 # Sam Callister April 18, 2016
 # Used to Ensure BuildClassifier and CrossValidate are working
 
+# Add parent directory to python path to enable the running of single 
+# Tests for this directory
+import sys
+sys.path.insert(0,'..')
 # Needed to be able to import modules from the parent directory
 import sys
 sys.path.insert(0, '../')
@@ -10,6 +14,7 @@ from MachineLearning.BuildClassifier import getDiscreetClassifier
 import MachineLearning.CrossValidate as CV
 import unittest
 from sklearn.datasets import load_iris
+
 
 class IrisDataTestCase(unittest.TestCase):
 	def setUp(self):
@@ -84,6 +89,58 @@ class decisionTreeTest(IrisDataTestCase):
 		kC = getDiscreetClassifier(dt)
 		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
 		print('Decision Tree result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
+
+class leastSquaresTest(IrisDataTestCase):
+	def runTest(self):
+		leastSquares = 'leastSquares'
+		kC = getDiscreetClassifier(leastSquares)
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('LeastSquares result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
+
+class ridgeRegressionTest(IrisDataTestCase):
+	def runTest(self):
+		ridge = 'ridge'
+		kC = getDiscreetClassifier(ridge)
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('RidgeRegression result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
+
+class lassoTest(IrisDataTestCase):
+	def runTest(self):
+		lasso = 'lasso'
+		kC = getDiscreetClassifier(lasso)
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('Lasso result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
+
+class elasticNetTest(IrisDataTestCase):
+	def runTest(self):
+		elasticNet = 'elasticNet'
+		kC = getDiscreetClassifier(elasticNet)
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('elasticNet result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
+
+class larsTest(IrisDataTestCase):
+	def runTest(self):
+		kC = getDiscreetClassifier('lars')
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('lars result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
+
+class orthogonalMatchingPursuitTest(IrisDataTestCase):
+	def runTest(self):
+		kC = getDiscreetClassifier('orthogonalMatchingPursuit')
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('OrthogonalMatchingPursuit result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
+
+class bayesianRidgeTest(IrisDataTestCase):
+	def runTest(self):
+		kC = getDiscreetClassifier('bayesianRidge')
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('BayesianRidge result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
+
+class logisticRegressionTest(IrisDataTestCase):
+	def runTest(self):
+		kC = getDiscreetClassifier('logisticRegression')
+		meanScoreTimeTaken = CV.doShuffleCrossValidation(kC, self.data.data, self.data.target)
+		print('logisticRegression result: ' + str(meanScoreTimeTaken.meanScore) + ' Time taken:' + str(meanScoreTimeTaken.timeTaken) + ' seconds')
 
 # class NeuralNetTest(IrisDataTestCase):
 # 	def runTest(self):
