@@ -3,17 +3,18 @@
 
 from sklearn.decomposition import PCA
 
-def get2DPoints(data, labels):
+def getDataPoints(data, labels, Ndimension):
 	# Check dimensionality
-	if(len(data[0]) < 3):
+	if(len(data[0]) <= Ndimension):
 		# Return points and labels in a dictionary
 		return packPoints(data, labels)
 	else:
-		# Do PCA to get 2 diemensional data
-		pca = PCA(n_components=2, copy=False)
+		# Do PCA to get lower diemensional data
+		pca = PCA(n_components=Ndimension, copy=False)
 		# Map the data
 		transformedData = pca.fit_transform(data)
 		return packPoints(transformedData, labels)
+
 # Puts the points into a dictionary of form label:pointList
 def packPoints(data, labels):
 	points = {}
