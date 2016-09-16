@@ -25,14 +25,32 @@ class LoadFileTestCase(unittest.TestCase):
 		self.filename = locationOfFile
 
 
-class DataPointsTest(LoadFileTestCase):
+class DataPoints1DTest(LoadFileTestCase):
+	def runTest(self):
+		data = cleanData(self.filename)
+		result = getDataPoints(data.data, data.target,1)
+		self.assertTrue(len(result['Iris-virginica'][0]) == 1)
+		jsonResult = json.dumps(result)
+		reloaded = json.loads(jsonResult)
+		self.assertTrue(len(reloaded['Iris-virginica'][0]) == 1)
+
+class DataPoints2DTest(LoadFileTestCase):
 	def runTest(self):
 		data = cleanData(self.filename)
 		result = getDataPoints(data.data, data.target,2)
-		self.assertTrue(len(result) > 0)
+		self.assertTrue(len(result['Iris-virginica'][0]) == 2)
 		jsonResult = json.dumps(result)
 		reloaded = json.loads(jsonResult)
-		self.assertTrue(len(reloaded) > 0)
+		self.assertTrue(len(reloaded['Iris-virginica'][0]) == 2)
+
+class DataPoints3DTest(LoadFileTestCase):
+	def runTest(self):
+		data = cleanData(self.filename)
+		result = getDataPoints(data.data, data.target,3)
+		self.assertTrue(len(result['Iris-virginica'][0]) == 3)
+		jsonResult = json.dumps(result)
+		reloaded = json.loads(jsonResult)
+		self.assertTrue(len(reloaded['Iris-virginica'][0]) == 3)
 
 if __name__ == '__main__':
     unittest.main()
