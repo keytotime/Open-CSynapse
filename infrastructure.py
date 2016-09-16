@@ -6,13 +6,34 @@ from tasks import runAlgorithm
 import json
 import pymongo
 import gridfs
+from beaker.middleware import SessionMiddleware
+import hashlib
+import os
+import base64
 
 #prefix = "/app"
 prefix = ""
+session_opts = {
+    'beaker.session.type': 'ext:memcached',
+    'session.url': 'memcached:11211',
+    'session.cookie_expires': 300,
+    'session.data_dir': './data',
+    'session.auto': True
+}
+
+app = SessionMiddleware(app(), session_opts)
 
 def getDB():
   db = MySQLdb.connect("db","csynapse","MyMZhdiEvY33WbqqAsFnLkcoQqRbacxo", "csynapse")
   return db
+
+def getMongoDB():
+  mdb = pymongo.MongoClient('mongo', 27017).csynapse
+  return mdb
+
+def getBeakerSession():
+  s = request.environ.get('beaker.session')
+  return s
 
 def getDescription(identifier):
   db = getDB()
@@ -28,6 +49,13 @@ def getDescription(identifier):
 @get('/healthcheck')
 def healthCheck():
 	return json.dumps('200 OK')
+
+@route('/test')
+def test():
+  s = request.environ.get('beaker.session')
+  s['test'] = s.get('test',0) + 1
+  s.save()
+  return 'Test counter: %d' % s['test']
 
 @get('/algorithms')
 def getAlgorithms():
@@ -61,6 +89,60 @@ def getActiveAlgorithms():
     ret_list.append(res)
   return json.dumps(ret_list)
 
+@post('/login')
+def postLogin():
+  username = request.params.get('username')
+  password = request.params.get('password')
+  if username == "" or username == None:
+    abort(401, "Username is Required")
+  if password == "" or password == None:
+    abort(401, "Password is Required")
+  session = getBeakerSession()
+  if not 'logged_in' in session or session['logged_in'] == False:
+    mdb = getMongoDB()
+    users = mdb.csynapse_users
+    user = users.find_one({"username":username})
+    if user != None:
+      db_pass = user['password']
+      salt = base64.b64decode(user['salt'])
+      check_pass = base64.b64encode(hashlib.pbkdf2_hmac('sha256', password, salt, 200000))
+      if check_pass == db_pass:
+        session['logged_in'] = True
+        session['username'] = username
+        return "logged in {}".format(username)
+      else:
+        abort(401, "Username/Password Combination was not valid")
+    else:
+      abort(401, "Username/Password Combination was not valid")
+  else:
+    return "Already Logged In"
+    
+@post('/register')
+def postRegister():
+  username = request.params.get('username')
+  password = request.params.get('password')
+  if username == "" or username == None:
+    abort(401, "Username is Required")
+  if password == "" or password == None:
+    abort(401, "Password is Required")
+  mdb = getMongoDB()
+  users = mdb.csynapse_users
+  if users.find_one({"username":username}) == None:
+    salt = os.urandom(16)
+    user_obj = {}
+    user_obj['username'] = username
+    user_obj['password'] = base64.b64encode(hashlib.pbkdf2_hmac('sha256', password, salt, 200000))
+    user_obj['salt'] = base64.b64encode(salt)
+    users.insert_one(user_obj)
+    return "registered {}".format(username)
+  else:
+    abort(400, "Username already exists")
+
+@post('/logout')
+def postLogout():
+  session = getBeakerSession()
+  session.delete()
+  return "logged out"
 
 @get('/new')
 def getNew():
@@ -92,7 +174,7 @@ def postNew():
   #cursor.execute("use csynapse")
   newID = data[0]
   upload = request.files.get('upload')
-  mdb = pymongo.MongoClient('mongo', 27017).csynapse_files
+  mdb = getMongoDB().csynapse_files
   fs = gridfs.GridFS(mdb)
   #print dir(upload)
   mongo_id = fs.put(upload.file)
@@ -180,4 +262,5 @@ def index():
   """
   return links
 
-run(host='', port=8888, debug=True, reloader=True)
+if __name__ == '__main__':
+  run(host='', port=8888, debug=True, reloader=True, app=app)
