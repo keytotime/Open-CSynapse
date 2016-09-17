@@ -29,7 +29,7 @@ def getDB():
   return db
 
 def getMongoDB():
-  mdb = pymongo.MongoClient('mongo', mongoPort)
+  mdb = MongoClient('mongo', mongoPort)
   return mdb
 
 def getBeakerSession():
@@ -74,7 +74,7 @@ def getCsynapses():
 @post('/create')
 def createCsynapse():
   # get username and csynapse
-  userName = request.params.get('user')
+  userName = getUsername()
   csynapseName = request.params.get('name')
   userCollection = getMongoDB().csynapse.users
 
@@ -183,9 +183,17 @@ def postRegister():
     users.insert_one(user_obj)
     return "registered {}".format(username)
   else:
-    abort(400, "Username already exists")
+    abort(401, "Username already exists")
 
-@post('/logout')
+@get('/getUsername')
+def getUsername():
+  session = getBeakerSession()
+  if "username" in session:
+    return session['username']
+  else:
+    abort(401, "Not Logged In")
+
+@route('/logout')
 def postLogout():
   session = getBeakerSession()
   session.delete()
