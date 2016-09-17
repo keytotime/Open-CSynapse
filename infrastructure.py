@@ -24,6 +24,17 @@ def getAlgorithms():
   algos = algoCollection.find()
   return json.dumps([d for d in algos])
 
+# Get list of all csynapses owned by a user
+# params user=UserName
+@get('/csynapses')
+def getCsynapses():
+  userName = request.params.get('user')
+  userCollection = getMongoDB().csynapse.users
+
+  doc = userCollection.find_one({'_id':userName})
+
+  return json.dumps({'csynapses':doc['csynapses'].keys()})
+
 # Creates a new csynapse for the user
 # @params (body or query) user=userName, name=csynapseName to create
 @post('/create')
@@ -49,16 +60,47 @@ def createCsynapse():
 # @params user=userName, name=csynapseName, dataName=dataset name
 @post('/data')
 def saveData():
-  return None
+  userName = request.params.get('user')
+  csynapseName = request.params.get('name')
+  upload = request.files.get('upload')
+
+  # TODO Check if cynapse name and dataset Name already exists
+  # return failed status if so
+
+  # Save file in grid fs
+  mdb = getMongoDB().csynapse_files
+  fs = gridfs.GridFS(mdb)
+  datasetId = fs.put(upload.file)
+
+  # store dataset name and mon
+  userCollection = getMongoDB().csynapse.users
+  userCollection.update_one({'_id':userName}, \
+    {'$set':{'csynapses.{0}.data_id'.format(csynapseName):datasetId}})
+
+  return HTTPResponse(status=200)
+
 
 # Begins obtaining the cross-validation score on an algorithm
 # @params (body or query) user=userName, name=csynapseName to create,
 # algorithms=list of algorithms to cross validate
 @post('/test')
 def testAlgorithm():
-  request.params.get('user')
-  request.params.get('name')
-  request.params.getAll('algorithms')
+  userName = request.params.get('user')
+  csynapseName = request.params.get('name')
+  algos = request.params.getall('algorithms')
+  # Get dataId
+  userCollection = getMongoDB().csynapse.users
+
+  doc = userCollection.find_one({'_id':userName})
+
+  dataId = doc['csynapses'][csynapseName]['data_id']
+
+  print(dataId)
+  print(algos)
+  # pass dataId and algorithms to task
+  runAlgoTest(dataId, algos)
+  # return 200
+  return HTTPResponse(status=200)
 
 # Trains algorithm(s) on given dataset name and then saves the data
 # @params user=userName, name=csynapse, algos=list of algorithm names
@@ -122,42 +164,42 @@ def getNew():
   """
   return ret
 
-# @post('/new')
-# def postNew():
-#   db = getDB()
-#   cursor = db.cursor()
-#   cursor.execute("SELECT MD5(UUID())")
-#   data = cursor.fetchone()
-#   #cursor.execute("use csynapse")
-#   newID = data[0]
-#   upload = request.files.get('upload')
-#   mdb = pymongo.MongoClient('mongo', 27017).csynapse_files
-#   fs = gridfs.GridFS(mdb)
-#   #print dir(upload)
-#   mongo_id = fs.put(upload.file)
-#   #savePath = "/var/csynapse/uploads/%s.csv" % (newID)
-#   #upload.save(savePath)
-#   # Get data points from training data
-#   runAlgorithm.delay(newID, 'graphData')
-#   # Put this into data base
-#   insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, 'graphData')
-#   cursor.execute(insertSQL)
+@post('/new')
+def postNew():
+  db = getDB()
+  cursor = db.cursor()
+  cursor.execute("SELECT MD5(UUID())")
+  data = cursor.fetchone()
+  #cursor.execute("use csynapse")
+  newID = data[0]
+  upload = request.files.get('upload')
+  mdb = pymongo.MongoClient('mongo', 27017).csynapse_files
+  fs = gridfs.GridFS(mdb)
+  #print dir(upload)
+  mongo_id = fs.put(upload.file)
+  #savePath = "/var/csynapse/uploads/%s.csv" % (newID)
+  #upload.save(savePath)
+  # Get data points from training data
+  runAlgorithm.delay(newID, 'graphData')
+  # Put this into data base
+  insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, 'graphData')
+  cursor.execute(insertSQL)
 
-#   for algorithm in request.params.getall('algorithm'):
-#     insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, algorithm)
-#     #print insertSQL
-#     cursor.execute(insertSQL)
-#     runAlgorithm.delay(newID, algorithm)
-#   description = request.params.get('description')
-#   #print mongo_id
-#   insertSQL = "INSERT INTO RequestInformation (identifier, description, mongo_id) VALUES ('%s', '%s', '%s')" % (newID, description, mongo_id)
-#   cursor.execute(insertSQL)
-#   db.commit()
-#   db.close()
-#   if request.params.get("redirect") != None and request.params.get("redirect") != "":
-#     redirect(request.params.get("redirect")+"?id=%s" %(newID))
-#   else:
-#     return "New ID: <a href=\""+prefix+"/check?id=%s\">%s</a>" % (newID, newID)
+  for algorithm in request.params.getall('algorithm'):
+    insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, algorithm)
+    #print insertSQL
+    cursor.execute(insertSQL)
+    runAlgorithm.delay(newID, algorithm)
+  description = request.params.get('description')
+  #print mongo_id
+  insertSQL = "INSERT INTO RequestInformation (identifier, description, mongo_id) VALUES ('%s', '%s', '%s')" % (newID, description, mongo_id)
+  cursor.execute(insertSQL)
+  db.commit()
+  db.close()
+  if request.params.get("redirect") != None and request.params.get("redirect") != "":
+    redirect(request.params.get("redirect")+"?id=%s" %(newID))
+  else:
+    return "New ID: <a href=\""+prefix+"/check?id=%s\">%s</a>" % (newID, newID)
 
 # @route('/check')
 # def check():
