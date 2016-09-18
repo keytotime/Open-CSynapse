@@ -2,69 +2,87 @@
 from celery import Celery
 import json
 from MachineLearning.BuildClassifier import getDiscreetClassifier
-from MachineLearning.Clean import cleanData
+from MachineLearning.Clean import cleanData, cleanUntagged
 from MachineLearning.CrossValidate import doShuffleCrossValidation
 from MachineLearning.GetDataPoints import getDataPoints
-import pymongo
+from MachineLearning.ClassifyData import predict
+from pymongo import MongoClient
 import gridfs
 from bson.objectid import ObjectId
 
 
 app = Celery('tasks', broker='amqp://guest@queue//')
+mongoPort = 5000
 
+def getMongoDB():
+  mdb = MongoClient('localhost', mongoPort)
+  return mdb
 
-def getMongoID(identifier):
-  db = getDB()
-  cursor = db.cursor()
-  select_sql = "SELECT mongo_id FROM RequestInformation WHERE identifier='%s'" % (identifier)
-  cursor.execute(select_sql)
-  result = cursor.fetchone()
-  if result != None:
-    return result[0]
-  else:
-    return ""
-
-# Returns path to training data on filesystem
-def buildPath(identifier):
-  mongo_id = getMongoID(identifier)
-  
-  if mongo_id == "":
-    raise "MongoID is not in SQL Database"
-  
-  mdb = pymongo.MongoClient('mongo', 27017).csynapse_files
+# Returns path to file of data
+def getDataFile(mongoId):
+  mdb = getMongoDB().csynapse_files
   fs = gridfs.GridFS(mdb)
-  
-  filename = '/tmp/'+identifier+'.csv'
-  
+
+  filename = '/tmp/{0}.csv'.format(mongoId)
   with open(filename, 'w') as f:
-    f.write(fs.get(ObjectId(mongo_id)).read())
-  
+    f.write(fs.get(ObjectId(mongoId)).read())
   return filename
+   
 
 @app.task
-def runAlgorithm(identifier, algorithm):
+def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
   ret = {}
-  if algorithm == "TEST":
-    ret["status"] = 1
-    ret["accuracy"] = 0.927
-    ret["notes"] = "This is just a test algorithm"
-  elif algorithm == 'graphData':
-    data = cleanData(buildPath(identifier))
-    ret = getDataPoints(data.data, data.target,2)
-  else:
-    # Instantiate Classifier
-    alg = getDiscreetClassifier(algorithm)
-    # Get data from file
-    data = cleanData(buildPath(identifier))
-    # Run Cross Validation
-    meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
-    ret['score'] = meanScoreTime.meanScore
-    ret['time'] = meanScoreTime.timeTaken
 
-  db = getDB()
-  cursor = db.cursor()
-  update_sql = "UPDATE Requests SET complete=1, return_object='%s' WHERE identifier='%s' AND algorithm='%s'" % (json.dumps(ret), identifier, algorithm)
-  #print update_sql
-  cursor.execute(update_sql)
-  db.commit()
+  # Get old data 
+  oldData = cleanData(getDataFile(oldDataId))
+  # Instantiate Classifier
+  alg = getDiscreetClassifier(algorithm)
+  # Train on data
+  alg.fit(oldData.data, oldData.target)
+
+  # Get new data
+  newData = cleanUntagged(getDataFile(newDataId))
+
+  # Predict the new data
+  result = predict(alg, newData)
+
+  finalStringList = []
+  # Put data into string to save
+  for x in result:
+    finalStringList.append(str(x[0]) + ',')
+    for v in x[1]:
+      finalStringList.append(str(v))
+      finalStringList.append(',')
+    finalStringList[-1] = '\n'
+
+  finalString = ''.join(finalStringList)
+  # Put classified data file into the database
+  mdb = getMongoDB().csynapse_files
+  fs = gridfs.GridFS(mdb)
+  classifiedDataId = fs.put(finalString)
+  print(finalString)
+  # Save data Id to cynapse
+  users = getMongoDB().csynapse.users
+  users.update_one({'_id':userName},\
+    {'$set':{'csynapses.{0}.classified.{1}'.format(csynapseName,dataName):classifiedDataId}})
+  return
+
+@app.task
+def runAlgoTest(dataId, algorithm, userName, csynapseName):
+  ret = {}
+  # Instantiate Classifier
+  alg = getDiscreetClassifier(algorithm)
+  # Get data from file
+  data = cleanData(getDataFile(dataId))
+  # Run Cross Validation
+  meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
+  ret['score'] = meanScoreTime.meanScore
+  ret['time'] = meanScoreTime.timeTaken
+
+  newObjectId = str(ObjectId())
+  # save result in db
+  userCollection = getMongoDB().csynapse.users
+  userCollection.update_one({'_id':userName}, \
+    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
+    'time':ret['time'], 'algoId':algorithm}}})
   return

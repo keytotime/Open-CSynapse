@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from bottle import *
-# from tasks import runAlgorithm
+from tasks import runAlgoTest, classify
 import json
 from pymongo import MongoClient
 import gridfs
@@ -9,6 +9,7 @@ from beaker.middleware import SessionMiddleware
 import hashlib
 import os
 import base64
+from bson.objectid import ObjectId
 
 #prefix = "/app"
 prefix = ""
@@ -22,14 +23,10 @@ session_opts = {
 }
 
 app = SessionMiddleware(app(), session_opts)
-mongoPort = 27017
-
-def getDB():
-  db = MySQLdb.connect("db","csynapse","MyMZhdiEvY33WbqqAsFnLkcoQqRbacxo", "csynapse")
-  return db
+mongoPort = 5000
 
 def getMongoDB():
-  mdb = MongoClient('mongo', mongoPort)
+  mdb = MongoClient('localhost', mongoPort)
   return mdb
 
 def getBeakerSession():
@@ -55,8 +52,8 @@ def healthCheck():
 @get('/algorithms')
 def getAlgorithms():
   algoCollection = getMongoDB().csynapse.algorithms
-  algos = algoCollection.find()
-  return json.dumps([d for d in algos])
+  algos = algoCollection.find_one({'_id':'algorithms'})
+  return json.dumps([{x:algos[x][u'description']} for x in algos if(x != u'_id')])
 
 # Get list of all csynapses owned by a user
 # params user=UserName
@@ -64,9 +61,7 @@ def getAlgorithms():
 def getCsynapses():
   userName = request.params.get('user')
   userCollection = getMongoDB().csynapse.users
-
   doc = userCollection.find_one({'_id':userName})
-
   return json.dumps({'csynapses':doc['csynapses'].keys()})
 
 # Creates a new csynapse for the user
@@ -100,7 +95,6 @@ def saveData():
 
   # TODO Check if cynapse name and dataset Name already exists
   # return failed status if so
-
   # Save file in grid fs
   mdb = getMongoDB().csynapse_files
   fs = gridfs.GridFS(mdb)
@@ -113,28 +107,106 @@ def saveData():
 
   return HTTPResponse(status=200)
 
+# Runs algorithms on new data
+#params (body or query) user=userName, name=csynapseName
+#upload:fileOfNewData
+@post('/run')
+def runAlgos():
+  userName = request.params.get('user')
+  csynapseName = request.params.get('name')
+  dataName = request.params.get('dataName')
+  algo = request.params.get('algorithm')
+  upload = request.files.get('upload')
+
+  # save new data
+  mdb = getMongoDB()
+  fs = gridfs.GridFS(mdb.csynapse_files)
+  newDatasetId = fs.put(upload.file)
+
+  # get mongoId of old data
+  userCollection = mdb.csynapse.users
+  doc = userCollection.find_one({'_id':userName})
+  oldDataId = doc['csynapses'][csynapseName]['data_id']
+  # get algo type
+  print algo
+  print doc['csynapses'][csynapseName]['algorithms']
+  algoType = doc['csynapses'][csynapseName]['algorithms'][algo]['algoId']
+
+  classify(newDatasetId, oldDataId, algoType, userName, csynapseName, dataName)
+
+# Gets all available classified data
+# @returns {cynapseName:[{datasetname:name, mongoId:id},...]}
+@get('/getAllAvailableClassified')
+def getClassified():
+  userName = request.params.get('user')
+  userCollection = getMongoDB().csynapse.users
+  doc = userCollection.find_one({'_id':userName})
+  csynapses = doc['csynapses']
+
+  finalList = []
+  for key, val in csynapses.items():
+    if('classified' in val.keys()):
+      available = []
+      toAdd = {key:available}
+      for aKey, aVal in val['classified'].items():
+        available.append({'datasetName':aKey,'mongoId':str(aVal)})
+      finalList.append(toAdd)
+  print(finalList)
+  return json.dumps(finalList)
+
+# Gets classified data for the given mongoId
+@get('/getClassified')
+def getClassified():
+  mongoId = request.params.get('mongoId')
+  mdb = getMongoDB().csynapse_files
+  fs = gridfs.GridFS(mdb)
+
+  theData = fs.get(ObjectId(mongoId)).read()
+  return theData
+ 
 
 # Begins obtaining the cross-validation score on an algorithm
-# @params (body or query) user=userName, name=csynapseName to create,
+# @params (body or query) user=userName, name=csynapseName,
 # algorithms=list of algorithms to cross validate
 @post('/test')
 def testAlgorithm():
   userName = request.params.get('user')
   csynapseName = request.params.get('name')
-  algos = request.params.getall('algorithms')
+  algos = request.params.getall('algorithm')
   # Get dataId
   userCollection = getMongoDB().csynapse.users
 
   doc = userCollection.find_one({'_id':userName})
-
   dataId = doc['csynapses'][csynapseName]['data_id']
 
-  print(dataId)
-  print(algos)
   # pass dataId and algorithms to task
-  runAlgoTest(dataId, algos)
+  for algo in algos:
+    runAlgoTest.delay(dataId, algo, userName, csynapseName)
   # return 200
   return HTTPResponse(status=200)
+
+# Gets the test results for all the algos run on the given csynapse
+# @params (body or query) user=userName, name=csynapseName
+# @returns {results:{algoId:svm,description:SVM classifier, score:score, time:time}}
+@get('/testResults')
+def getTestResults():
+  userName = request.params.get('user')
+  csynapseName = request.params.get('name')
+
+  mdb = getMongoDB().csynapse
+  userCollection = mdb.users
+  doc = userCollection.find_one({'_id':userName})
+  algos = doc['csynapses'][csynapseName]['algorithms']
+  print algos
+  # get descriptions
+  algoCollection = mdb.algorithms
+  
+  algorithms = algoCollection.find_one({'_id':'algorithms'})
+  for x in algorithms:
+    for a in algos.itervalues():
+      if(x == a['algoId']):
+        a['description'] = algorithms[x]['description']
+  return json.dumps([x for x in algos.itervalues()])
 
 @post('/login')
 def postLogin():
@@ -199,39 +271,6 @@ def postLogout():
   session.delete()
   return "logged out"
 
-# Trains algorithm(s) on given dataset name and then saves the data
-# @params user=userName, name=csynapse, algos=list of algorithm names
-
-# Fetches all the cross validation information for the csynapse
-# @params (query) user=userName, name=csynapseName
-@get('/testResults')
-def getTestResults():
-  pass
-
-# Trains then saves the given algorithm(s) in their trained state.
-# Params in JSON Body
-# {csynapseID:[{algoName:algoName,score:score}, ...]}
-# 
-@post('/save')
-def saveAlgo():
-  pass
-
-# @get('/active_algorithms')
-# def getActiveAlgorithms():
-#   db = getDB()
-#   cursor = db.cursor()
-#   select_sql = "SELECT identifier, description FROM Algorithms WHERE active = 1"
-#   cursor.execute(select_sql)
-#   ret = ""
-#   ret_list = []
-#   results = cursor.fetchall()
-#   for result in results:
-#     res = {}
-#     res["identifier"] = result[0]
-#     res["description"] = result[1]
-#     ret_list.append(res)
-#   return json.dumps(ret_list)
-
 @route("/")
 def index():
   links = """
@@ -260,97 +299,6 @@ def getNew():
   
   """
   return ret
-
-
-@post('/new')
-def postNew():
-  db = getDB()
-  cursor = db.cursor()
-  cursor.execute("SELECT MD5(UUID())")
-  data = cursor.fetchone()
-  #cursor.execute("use csynapse")
-  newID = data[0]
-  upload = request.files.get('upload')
-  mdb = pymongo.MongoClient('mongo', 27017).csynapse_files
-  fs = gridfs.GridFS(mdb)
-  #print dir(upload)
-  mongo_id = fs.put(upload.file)
-  #savePath = "/var/csynapse/uploads/%s.csv" % (newID)
-  #upload.save(savePath)
-  # Get data points from training data
-  runAlgorithm.delay(newID, 'graphData')
-  # Put this into data base
-  insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, 'graphData')
-  cursor.execute(insertSQL)
-
-  for algorithm in request.params.getall('algorithm'):
-    insertSQL = "INSERT INTO Requests (identifier, algorithm) VALUES (\"%s\", \"%s\")" % (newID, algorithm)
-    #print insertSQL
-    cursor.execute(insertSQL)
-    runAlgorithm.delay(newID, algorithm)
-  description = request.params.get('description')
-  #print mongo_id
-  insertSQL = "INSERT INTO RequestInformation (identifier, description, mongo_id) VALUES ('%s', '%s', '%s')" % (newID, description, mongo_id)
-  cursor.execute(insertSQL)
-  db.commit()
-  db.close()
-  if request.params.get("redirect") != None and request.params.get("redirect") != "":
-    redirect(request.params.get("redirect")+"?id=%s" %(newID))
-  else:
-    return "New ID: <a href=\""+prefix+"/check?id=%s\">%s</a>" % (newID, newID)
-
-# @route('/check')
-# def check():
-#   db = getDB()
-#   cursor = db.cursor()
-#   ret = ""
-#   for check_id in request.params.getall('id'):
-#     select_sql = "SELECT identifier, algorithm, complete, return_object FROM Requests WHERE identifier=\"%s\"" % (check_id)
-#     cursor.execute(select_sql)
-#     results = cursor.fetchall()
-#     human_readable = request.params.get('human_readable')
-#     if human_readable == "1":
-#       for result in results:
-#         ret += "ID: %s, Algorithm %s, Return Object: %s, Status: " % (result[0], result[1], result[3])
-#         if result[2]==1:
-#           ret += "Complete"
-#         else:
-#           ret += "Not Complete"
-#         ret += "<br />\n"
-#     else:
-#       retlist = []
-#       for result in results:
-#         result_obj = {}
-#         result_obj["id"] = result[0]
-#         result_obj["algorithm"] = result[1]
-#         result_obj["status"] = result[2]
-#         result_obj["return_object"] = result[3]
-#         result_obj["description"] = getDescription(result_obj["id"])
-#         retlist.append(result_obj)
-#       ret = json.dumps(retlist)
-#   return ret
-
-# @get('/all')
-# def getAll():
-#   db = getDB()
-#   cursor = db.cursor()
-#   select_sql = "SELECT DISTINCT(identifier) FROM Requests"
-#   cursor.execute(select_sql)
-#   ret = ""
-#   results = cursor.fetchall()
-#   if request.params.get('human_readable') == "1":
-#     for result in results:
-#       ret += "<a href=\""+prefix+"/check?id=%s\">%s</a><br />" % (result[0], result[0])
-#   else:
-#     res = []
-#     for result in results:
-#       #print result[0]
-#       res.append(result[0])
-#     ret_obj = {}
-#     ret_obj["ids"] = res
-#     ret = json.dumps(ret_obj)
-#   return ret
-
 
 if __name__ == '__main__':
   run(host='', port=8888, debug=True, reloader=True, app=app)

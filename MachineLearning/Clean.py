@@ -26,3 +26,22 @@ def cleanData(fileName):
 	DataLabels = namedtuple('DataLabels','data,target')
 	# Return the training/test data
 	return DataLabels(data, target)
+
+def cleanUntagged(filename):
+	#list of data
+	data = []
+
+	# Read data in from file
+	with open(filename, 'r') as f:
+		for line in f:
+			stripped = line.rstrip('\n').rstrip()
+			splitData = stripped.split(',')
+			# Label is in first spot
+			
+			# Cast every value to a float
+			casted = [float(value) for value in splitData]
+			# Add bias feature to the data
+			casted.append(1)
+			data.append(casted)
+
+	return data
