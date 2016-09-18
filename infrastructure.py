@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from bottle import *
-from tasks import runAlgoTest, classify
+from tasks import runAlgoTest, classify, taskGetPoints
 import json
 from pymongo import MongoClient
 import gridfs
@@ -155,6 +155,7 @@ def getClassified():
   return json.dumps(finalList)
 
 # Gets classified data for the given mongoId
+# @params mongoId=mongoId of classifiedData
 @get('/getClassified')
 def getClassified():
   mongoId = request.params.get('mongoId')
@@ -164,6 +165,29 @@ def getClassified():
   theData = fs.get(ObjectId(mongoId)).read()
   return theData
  
+@get('/getPoints')
+def getPoints():
+  userName = request.params.get('user')
+  csynapseName = request.params.get('name')
+
+  # get dataset Id
+  userCollection = getMongoDB().csynapse.users
+  doc = userCollection.find_one({'_id':userName})
+
+  # see if data points already exist
+  if('points' in doc['csynapses'][csynapseName].keys()):
+    ids = doc['csynapses'][csynapseName]['points']
+    finalList = []
+    for key, val in ids.items():
+      mdb = getMongoDB().csynapse_files
+      fs = gridfs.GridFS(mdb)
+      theData = fs.get(ObjectId(val)).read()
+      finalList.append({key:theData})
+    return json.dumps(finalList)
+  else: # process the dataset and save the points
+    mongoId = str(doc['csynapses'][csynapseName]['data_id'])
+    taskGetPoints(userName, csynapseName, mongoId)
+    return HTTPResponse(status=200)
 
 # Begins obtaining the cross-validation score on an algorithm
 # @params (body or query) user=userName, name=csynapseName,
@@ -181,7 +205,7 @@ def testAlgorithm():
 
   # pass dataId and algorithms to task
   for algo in algos:
-    runAlgoTest.delay(dataId, algo, userName, csynapseName)
+    runAlgoTest(dataId, algo, userName, csynapseName)
   # return 200
   return HTTPResponse(status=200)
 

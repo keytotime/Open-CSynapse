@@ -86,3 +86,28 @@ def runAlgoTest(dataId, algorithm, userName, csynapseName):
     {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
     'time':ret['time'], 'algoId':algorithm}}})
   return
+
+@app.task
+def taskGetPoints(userName, csynapseName, mongoId):
+  ret = {}
+  # get Data points
+  data = cleanData(getDataFile(mongoId))
+  # find dimensionality of data
+  d = len(data.data[0])
+  dimensions = None
+  if(d >= 3):
+    dimensions = [3,2,1]
+  elif(d == 2):
+    dimensions = [2,1]
+  else:
+    dimensions = [1]
+
+  for x in dimensions:
+    points = getDataPoints(data.data,data.target,x)
+    #save result in database
+    mdb = getMongoDB().csynapse_files
+    fs = gridfs.GridFS(mdb)
+    pointsId = fs.put(str(points))
+    userCollection = getMongoDB().csynapse.users
+    userCollection.update_one({'_id':userName},\
+      {'$set':{'csynapses.{0}.points.{1}'.format(csynapseName,x):pointsId}})
