@@ -165,6 +165,10 @@ def getClassified():
   theData = fs.get(ObjectId(mongoId)).read()
   return theData
  
+# Returns the datapoints if they have already been calc'd and saved
+# otherwise queues them up to be saved
+# @params user=userName, name=csynapseName
+# @returns {'1':{label:[listOf 1 d points],otherLabel:[]...}, '2':{label:[list of 2 d points]}}}
 @get('/getPoints')
 def getPoints():
   userName = request.params.get('user')
