@@ -2,10 +2,11 @@
 from celery import Celery
 import json
 from MachineLearning.BuildClassifier import getDiscreetClassifier
-from MachineLearning.Clean import cleanData, cleanUntagged
+from MachineLearning.Clean import cleanData, cleanUntagged, getHeaders
 from MachineLearning.CrossValidate import doShuffleCrossValidation
 from MachineLearning.GetDataPoints import getDataPoints
 from MachineLearning.ClassifyData import predict
+import MachineLearning.RunExternal as runEx
 from pymongo import MongoClient
 import gridfs
 from bson.objectid import ObjectId
@@ -31,36 +32,58 @@ def getDataFile(mongoId):
 
 @app.task
 def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
-  ret = {}
+  result = None
+  finalString = ''
+  # special case for homegrown algorithms
+  if(algorithm in ['adaline', 'hebbian', 'multiLayerPerceptronSig', 'multiLayerPerceptronTan']):
+    # training data
+    trainingPath = getDataFile(oldDataId)
 
-  # Get old data 
-  oldData = cleanData(getDataFile(oldDataId))
-  # Instantiate Classifier
-  alg = getDiscreetClassifier(algorithm)
-  # Train on data
-  alg.fit(oldData.data, oldData.target)
+    # get headers
+    possibleHeaders = getHeaders(trainingPath)
+    # new Data
+    newDataPath = getDataFile(newDataId)
+    resultsPath = trainingPath + 'results'
 
-  # Get new data
-  newData = cleanUntagged(getDataFile(newDataId))
+    runEx.execute('java -jar externalExecutables/{0}.jar {1} {2} {3}'.format(algorithm,trainingPath,newDataPath,resultsPath))
 
-  # Predict the new data
-  result = predict(alg, newData)
+    # write header to file
+    if(possibleHeaders != ''):
+      with open(resultsPath, 'r') as f:
+        content = f.read()
+        finalString = possibleHeaders + content
+  else:
+    # Get old data 
+    oldData = cleanData(getDataFile(oldDataId))
+    # Instantiate Classifier
+    alg = getDiscreetClassifier(algorithm)
+    # Train on data
+    alg.fit(oldData.data, oldData.target)
 
-  finalStringList = []
-  # Put data into string to save
-  for x in result:
-    finalStringList.append(str(x[0]) + ',')
-    for v in x[1]:
-      finalStringList.append(str(v))
-      finalStringList.append(',')
-    finalStringList[-1] = '\n'
+    # Get new data
+    newData = cleanUntagged(getDataFile(newDataId))
 
-  finalString = ''.join(finalStringList)
+    # Get headers from old file to save with results
+    possibleHeaders = oldData.headers
+    # Predict the new data
+    result = predict(alg, newData.data)
+
+    finalStringList = []
+    if(possibleHeaders != ''):
+      finalStringList.append(possibleHeaders)
+    # Put data into string to save
+    for x in result:
+      finalStringList.append(str(x[0]) + ',')
+      for v in x[1]:
+        finalStringList.append(str(v))
+        finalStringList.append(',')
+      finalStringList[-1] = '\n'
+
+    finalString = ''.join(finalStringList)
   # Put classified data file into the database
   mdb = getMongoDB().csynapse_files
   fs = gridfs.GridFS(mdb)
   classifiedDataId = fs.put(finalString)
-  print(finalString)
   # Save data Id to cynapse
   users = getMongoDB().csynapse.users
   users.update_one({'_id':userName},\
@@ -70,14 +93,27 @@ def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
 @app.task
 def runAlgoTest(dataId, algorithm, userName, csynapseName):
   ret = {}
-  # Instantiate Classifier
-  alg = getDiscreetClassifier(algorithm)
-  # Get data from file
-  data = cleanData(getDataFile(dataId))
-  # Run Cross Validation
-  meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
-  ret['score'] = meanScoreTime.meanScore
-  ret['time'] = meanScoreTime.timeTaken
+  # special case for homegrown algos
+  if(algorithm in ['adaline', 'hebbian', 'multiLayerPerceptronSig', 'multiLayerPerceptronTan']):
+    # get file
+    path = getDataFile(dataId)
+    resultsPath = path + 'results'
+    runEx.execute('java -jar externalExecutables/{0}.jar {1} {2}'.format(algorithm,path,resultsPath))
+    # get results from file
+    with open(resultsPath, 'r') as f:
+      data = f.read()
+      score, time = data.split(',')
+      ret['score'] = float(score) / 100
+      ret['time'] = float(time) / 1000
+  else:
+    # Instantiate Classifier
+    alg = getDiscreetClassifier(algorithm)
+    # Get data from file
+    data = cleanData(getDataFile(dataId))
+    # Run Cross Validation
+    meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
+    ret['score'] = meanScoreTime.meanScore
+    ret['time'] = meanScoreTime.timeTaken
 
   newObjectId = str(ObjectId())
   # save result in db

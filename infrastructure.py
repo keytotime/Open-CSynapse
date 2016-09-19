@@ -96,6 +96,7 @@ def saveData():
   # TODO Check if cynapse name and dataset Name already exists
   # return failed status if so
   # Save file in grid fs
+
   mdb = getMongoDB().csynapse_files
   fs = gridfs.GridFS(mdb)
   datasetId = fs.put(upload.file)
@@ -128,8 +129,6 @@ def runAlgos():
   doc = userCollection.find_one({'_id':userName})
   oldDataId = doc['csynapses'][csynapseName]['data_id']
   # get algo type
-  print algo
-  print doc['csynapses'][csynapseName]['algorithms']
   algoType = doc['csynapses'][csynapseName]['algorithms'][algo]['algoId']
 
   classify(newDatasetId, oldDataId, algoType, userName, csynapseName, dataName)
@@ -151,7 +150,6 @@ def getClassified():
       for aKey, aVal in val['classified'].items():
         available.append({'datasetName':aKey,'mongoId':str(aVal)})
       finalList.append(toAdd)
-  print(finalList)
   return json.dumps(finalList)
 
 # Gets classified data for the given mongoId
@@ -225,15 +223,15 @@ def getTestResults():
   userCollection = mdb.users
   doc = userCollection.find_one({'_id':userName})
   algos = doc['csynapses'][csynapseName]['algorithms']
-  print algos
   # get descriptions
   algoCollection = mdb.algorithms
   
   algorithms = algoCollection.find_one({'_id':'algorithms'})
   for x in algorithms:
-    for a in algos.itervalues():
-      if(x == a['algoId']):
-        a['description'] = algorithms[x]['description']
+    for key,val in algos.items():
+      if(x == val['algoId']):
+        val['description'] = algorithms[x]['description']
+        val['id'] = key
   return json.dumps([x for x in algos.itervalues()])
 
 @post('/login')

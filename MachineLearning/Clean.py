@@ -9,10 +9,12 @@ def cleanData(fileName):
 	target = list()
 	# list of data
 	data = list()
+
+	possibleHeader = ''
 	# Read data in from file
 	with open(fileName, 'r') as f:
 		possibleHeader = f.readline()
-		hasHeader = csv.Sniffer().has_header(f.readline())
+		hasHeader = csv.Sniffer().has_header(possibleHeader)
 		if(not hasHeader):
 			f.seek(0)
 		reader = csv.reader(f, skipinitialspace=True)
@@ -27,18 +29,18 @@ def cleanData(fileName):
 			data.append(casted)
 
 	# Tuple mapping for returning data and labels
-	DataLabels = namedtuple('DataLabels','data,target')
+	DataLabels = namedtuple('DataLabels','headers,data,target')
 	# Return the training/test data
-	return DataLabels(data, target)
+	return DataLabels(possibleHeader,data, target)
 
 def cleanUntagged(filename):
 	#list of data
 	data = []
-
+	possibleHeader = ''
 	# Read data in from file
 	with open(filename, 'r') as f:
 		possibleHeader = f.readline()
-		hasHeader = csv.Sniffer().has_header(f.readline())
+		hasHeader = csv.Sniffer().has_header(possibleHeader)
 		if(not hasHeader):
 			f.seek(0)
 		reader = csv.reader(f, skipinitialspace=True)
@@ -49,4 +51,17 @@ def cleanUntagged(filename):
 			casted.append(1)
 			data.append(casted)
 
-	return data
+	# Tuple mapping for returning data and labels
+	DataLabels = namedtuple('DataLabels','headers,data')
+	return DataLabels(possibleHeader, data)
+
+def getHeaders(filename):
+	possibleHeader = ''
+	# Read data in from file
+	with open(filename, 'r') as f:
+		possibleHeader = f.readline()
+		hasHeader = csv.Sniffer().has_header(possibleHeader)
+		if(hasHeader):
+			return possibleHeader
+		else:
+			return ''
