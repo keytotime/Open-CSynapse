@@ -235,10 +235,6 @@ def getPoints():
     taskGetPoints(userName, csynapseName, mongoId)
     return HTTPResponse(status=200)
 
-
-
-
-
 @post('/login')
 def postLogin():
   username = request.params.get('username')
