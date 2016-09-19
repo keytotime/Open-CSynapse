@@ -23,10 +23,10 @@ session_opts = {
 }
 
 app = SessionMiddleware(app(), session_opts)
-mongoPort = 5000
+mongoPort = 27017
 
 def getMongoDB():
-  mdb = MongoClient('localhost', mongoPort)
+  mdb = MongoClient('mongo', mongoPort)
   return mdb
 
 def getBeakerSession():
@@ -258,9 +258,9 @@ def postLogin():
         session['username'] = username
         return "logged in {}".format(username)
       else:
-        abort(401, "Username/Password Combination was not valid")
+        abort(401, "Username/Password Combination was not valid - Type 1")
     else:
-      abort(401, "Username/Password Combination was not valid")
+      abort(401, "Username/Password Combination was not valid - Type 2")
   else:
     return "Already Logged In"
     
@@ -272,7 +272,7 @@ def postRegister():
     abort(401, "Username is Required")
   if password == "" or password == None:
     abort(401, "Password is Required")
-  mdb = getMongoDB().csynpase
+  mdb = getMongoDB().csynapse
   users = mdb.csynapse_users
   if users.find_one({"username":username}) == None:
     salt = os.urandom(16)
