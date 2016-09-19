@@ -1,6 +1,7 @@
 # Sam Callister April 18, 2016
 # Used to Prepare data for ML algorithms
 from collections import namedtuple
+import csv
 
 # returns (data, labels)
 def cleanData(fileName):
@@ -10,12 +11,15 @@ def cleanData(fileName):
 	data = list()
 	# Read data in from file
 	with open(fileName, 'r') as f:
-		for line in f:
-			stripped = line.rstrip('\n').rstrip()
-			splitData = stripped.split(',')
+		possibleHeader = f.readline()
+		hasHeader = csv.Sniffer().has_header(f.readline())
+		if(not hasHeader):
+			f.seek(0)
+		reader = csv.reader(f, skipinitialspace=True)
+		for line in reader:
 			# Label is in first spot
-			target.append(splitData[0])
-			dataPoint = splitData[1:]
+			target.append(line[0])
+			dataPoint = line[1:]
 			# Cast every value to a float
 			casted = [float(value) for value in dataPoint]
 			# Add bias feature to the data
@@ -33,13 +37,14 @@ def cleanUntagged(filename):
 
 	# Read data in from file
 	with open(filename, 'r') as f:
-		for line in f:
-			stripped = line.rstrip('\n').rstrip()
-			splitData = stripped.split(',')
-			# Label is in first spot
-			
+		possibleHeader = f.readline()
+		hasHeader = csv.Sniffer().has_header(f.readline())
+		if(not hasHeader):
+			f.seek(0)
+		reader = csv.reader(f, skipinitialspace=True)
+		for line in reader:
 			# Cast every value to a float
-			casted = [float(value) for value in splitData]
+			casted = [float(value) for value in line]
 			# Add bias feature to the data
 			casted.append(1)
 			data.append(casted)
