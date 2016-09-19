@@ -75,20 +75,6 @@ python -m unittest fileName.ClassName.methodName
 @returns 200 on success
 ```
 
-### Add data to a csynapse
-```
-@post /data
-@params name=nameOfNewCsynapse, upload=fileOfUploadedData
-@returns 200 on success
-```
-
-### Test algorithms on a CSynapse
-```
-@post /test
-@params name=csynapseName,algorithm=algoId ... algorithm=algoId
-@ returns 200 on success
-```
-
 ### Test algorithms on a CSynapse
 ```
 @post /test
