@@ -53,7 +53,7 @@ def healthCheck():
 def getAlgorithms():
   algoCollection = getMongoDB().csynapse.algorithms
   algos = algoCollection.find_one({'_id':'algorithms'})
-  return json.dumps([{x:algos[x][u'description']} for x in algos if(x != u'_id')])
+  return json.dumps([{'algoId':x,'description':algos[x][u'description']} for x in algos if(x != u'_id')])
 
 # Get list of all csynapses owned by a user
 # params user=UserName
@@ -108,6 +108,50 @@ def saveData():
 
   return HTTPResponse(status=200)
 
+# Begins obtaining the cross-validation score on an algorithm
+# @params (body or query) user=userName, name=csynapseName,
+# algorithms=list of algorithms to cross validate
+@post('/test')
+def testAlgorithm():
+  userName = request.params.get('user')
+  csynapseName = request.params.get('name')
+  algos = request.params.getall('algorithm')
+  # Get dataId
+  userCollection = getMongoDB().csynapse.users
+
+  doc = userCollection.find_one({'_id':userName})
+  dataId = doc['csynapses'][csynapseName]['data_id']
+
+  # pass dataId and algorithms to task
+  for algo in algos:
+    runAlgoTest(dataId, algo, userName, csynapseName)
+  # return 200
+  return HTTPResponse(status=200)
+
+# Gets the test results for all the algos run on the given csynapse
+# @params (body or query) user=userName, name=csynapseName
+# @returns {results:{algoId:svm,description:SVM classifier, score:score, time:time}}
+@get('/testResults')
+def getTestResults():
+  userName = request.params.get('user')
+  csynapseName = request.params.get('name')
+
+  mdb = getMongoDB().csynapse
+  userCollection = mdb.users
+  doc = userCollection.find_one({'_id':userName})
+  algos = doc['csynapses'][csynapseName]['algorithms']
+  # get descriptions
+  algoCollection = mdb.algorithms
+  
+  algorithms = algoCollection.find_one({'_id':'algorithms'})
+  for x in algorithms:
+    for key,val in algos.items():
+      if(x == val['algoId']):
+        val['description'] = algorithms[x]['description']
+        val['id'] = key
+  return json.dumps([x for x in algos.itervalues()])
+
+  
 # Runs algorithms on new data
 #params (body or query) user=userName, name=csynapseName
 #upload:fileOfNewData
@@ -191,48 +235,9 @@ def getPoints():
     taskGetPoints(userName, csynapseName, mongoId)
     return HTTPResponse(status=200)
 
-# Begins obtaining the cross-validation score on an algorithm
-# @params (body or query) user=userName, name=csynapseName,
-# algorithms=list of algorithms to cross validate
-@post('/test')
-def testAlgorithm():
-  userName = request.params.get('user')
-  csynapseName = request.params.get('name')
-  algos = request.params.getall('algorithm')
-  # Get dataId
-  userCollection = getMongoDB().csynapse.users
 
-  doc = userCollection.find_one({'_id':userName})
-  dataId = doc['csynapses'][csynapseName]['data_id']
 
-  # pass dataId and algorithms to task
-  for algo in algos:
-    runAlgoTest(dataId, algo, userName, csynapseName)
-  # return 200
-  return HTTPResponse(status=200)
 
-# Gets the test results for all the algos run on the given csynapse
-# @params (body or query) user=userName, name=csynapseName
-# @returns {results:{algoId:svm,description:SVM classifier, score:score, time:time}}
-@get('/testResults')
-def getTestResults():
-  userName = request.params.get('user')
-  csynapseName = request.params.get('name')
-
-  mdb = getMongoDB().csynapse
-  userCollection = mdb.users
-  doc = userCollection.find_one({'_id':userName})
-  algos = doc['csynapses'][csynapseName]['algorithms']
-  # get descriptions
-  algoCollection = mdb.algorithms
-  
-  algorithms = algoCollection.find_one({'_id':'algorithms'})
-  for x in algorithms:
-    for key,val in algos.items():
-      if(x == val['algoId']):
-        val['description'] = algorithms[x]['description']
-        val['id'] = key
-  return json.dumps([x for x in algos.itervalues()])
 
 @post('/login')
 def postLogin():
