@@ -10,6 +10,7 @@ import MachineLearning.RunExternal as runEx
 from pymongo import MongoClient
 import gridfs
 from bson.objectid import ObjectId
+import os
 
 
 app = Celery('tasks', broker='amqp://guest@queue//')
@@ -98,7 +99,8 @@ def runAlgoTest(dataId, algorithm, userName, csynapseName):
     # get file
     path = getDataFile(dataId)
     resultsPath = path + 'results'
-    runEx.execute('java -jar externalExecutables/{0}.jar {1} {2}'.format(algorithm,path,resultsPath))
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    runEx.execute('java -jar {3}/externalExecutables/{0}.jar {1} {2}'.format(algorithm,path,resultsPath,script_dir))
     # get results from file
     with open(resultsPath, 'r') as f:
       data = f.read()
