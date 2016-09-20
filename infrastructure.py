@@ -17,7 +17,7 @@ prefix = ""
 session_opts = {
     'beaker.session.type': 'ext:memcached',
     'session.url': 'memcached:11211',
-    'session.cookie_expires': 300,
+    'session.cookie_expires': 86400,
     'session.data_dir': './data',
     'session.auto': True
 }
@@ -59,7 +59,7 @@ def getAlgorithms():
 # params user=UserName
 @get('/csynapses')
 def getCsynapses():
-  userName = request.params.get('user')
+  userName = getUsername()
   userCollection = getMongoDB().csynapse.users
   doc = userCollection.find_one({'_id':userName})
   return json.dumps({'csynapses':doc['csynapses'].keys()})
@@ -81,7 +81,10 @@ def createCsynapse():
   if(r.matched_count == 1):
     ret = {'status':200,'body':'ok'}
   else:
-    ret = {'status':422,'body':'csynapse already exists'}
+    if (r.matched_count == 0):
+      ret = {'status':422,'body':'csynapse was not created'}
+    else:
+      ret = {'status':422,'body':'csynapse already exists'}
 
   return HTTPResponse(status=ret['status'], body=json.dumps({'message':ret['body']}))
 
@@ -89,7 +92,7 @@ def createCsynapse():
 # @params user=userName, name=csynapseName, dataName=dataset name
 @post('/data')
 def saveData():
-  userName = request.params.get('user')
+  userName = getUsername()
   csynapseName = request.params.get('name')
   upload = request.files.get('upload')
 
@@ -113,7 +116,7 @@ def saveData():
 # algorithms=list of algorithms to cross validate
 @post('/test')
 def testAlgorithm():
-  userName = request.params.get('user')
+  userName = getUsername()
   csynapseName = request.params.get('name')
   algos = request.params.getall('algorithm')
   # Get dataId
@@ -133,7 +136,7 @@ def testAlgorithm():
 # @returns {results:{algoId:svm,description:SVM classifier, score:score, time:time}}
 @get('/testResults')
 def getTestResults():
-  userName = request.params.get('user')
+  userName = getUsername()
   csynapseName = request.params.get('name')
 
   mdb = getMongoDB().csynapse
@@ -157,7 +160,7 @@ def getTestResults():
 #upload:fileOfNewData
 @post('/run')
 def runAlgos():
-  userName = request.params.get('user')
+  userName = getUsername()
   csynapseName = request.params.get('name')
   dataName = request.params.get('dataName')
   algo = request.params.get('algorithm')
@@ -181,7 +184,7 @@ def runAlgos():
 # @returns {cynapseName:[{datasetname:name, mongoId:id},...]}
 @get('/getAllAvailableClassified')
 def getClassified():
-  userName = request.params.get('user')
+  userName = getUsername()
   userCollection = getMongoDB().csynapse.users
   doc = userCollection.find_one({'_id':userName})
   csynapses = doc['csynapses']
@@ -213,7 +216,7 @@ def getClassified():
 # @returns {'1':{label:[listOf 1 d points],otherLabel:[]...}, '2':{label:[list of 2 d points]}}}
 @get('/getPoints')
 def getPoints():
-  userName = request.params.get('user')
+  userName = getUsername()
   csynapseName = request.params.get('name')
 
   # get dataset Id
@@ -281,9 +284,12 @@ def postRegister():
     salt = os.urandom(16)
     user_obj = {}
     user_obj['username'] = username
+    user_obj['_id'] = username
     user_obj['password'] = base64.b64encode(hashlib.pbkdf2_hmac('sha256', password, salt, 200000))
     user_obj['salt'] = base64.b64encode(salt)
     users.insert_one(user_obj)
+    users = mdb.users
+    users.insert_one({"_id":username})
     return "registered {}".format(username)
   else:
     abort(401, "Username already exists")

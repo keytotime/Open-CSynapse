@@ -13,10 +13,10 @@ from bson.objectid import ObjectId
 
 
 app = Celery('tasks', broker='amqp://guest@queue//')
-mongoPort = 5000
+mongoPort = 27017
 
 def getMongoDB():
-  mdb = MongoClient('localhost', mongoPort)
+  mdb = MongoClient('mongo', mongoPort)
   return mdb
 
 # Returns path to file of data
