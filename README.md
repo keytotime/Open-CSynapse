@@ -93,7 +93,7 @@ python -m unittest fileName.ClassName.methodName
 ### Classifiy new data
 ```
 @post /run
-@params name=csynapseName,algorithm=mongoAlgoId, upload=dataToBeClassified
+@params name=csynapseName,algorithm=mongoAlgoId, upload=dataToBeClassified, dataName=nameOfNewDataset
 @ returns 200 on success
 ```
 
