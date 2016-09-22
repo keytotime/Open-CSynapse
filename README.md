@@ -40,6 +40,34 @@ python -m unittest fileName.ClassName.methodName
 ```
 # API
 
+### Register a new user
+```
+@post /register
+@params username=Username of new user, password=password of new user
+@returns on success
+200 {"status":"ok"}
+on error
+401 "Username already exists"
+```
+
+### Login
+```
+@post /login
+@params username=Username, password=password
+@returns on success
+200 {"status":"ok"}
+on error
+401 "Username/Password Combination was not valid"
+```
+
+### Determine who is logged in
+```
+@get /getUsername
+@returns
+username if logged in
+401 Not logged in if not logged in
+```
+
 ### Get all available algorithms
 ```
 @get /algorithms
