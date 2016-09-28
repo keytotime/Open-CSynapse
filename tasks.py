@@ -7,27 +7,20 @@ from MachineLearning.CrossValidate import doShuffleCrossValidation
 from MachineLearning.GetDataPoints import getDataPoints
 from MachineLearning.ClassifyData import predict
 import MachineLearning.RunExternal as runEx
-from pymongo import MongoClient
-import gridfs
+from database import db
 from bson.objectid import ObjectId
 import os
 
 
 app = Celery('tasks', broker='amqp://guest@queue//')
 mongoPort = 27017
-
-def getMongoDB():
-  mdb = MongoClient('mongo', mongoPort)
-  return mdb
+db = db('mongo', mongoPort)
 
 # Returns path to file of data
 def getDataFile(mongoId):
-  mdb = getMongoDB().csynapse_files
-  fs = gridfs.GridFS(mdb)
-
   filename = '/tmp/{0}.csv'.format(mongoId)
   with open(filename, 'w') as f:
-    f.write(fs.get(ObjectId(mongoId)).read())
+    f.write(db.files.get(ObjectId(mongoId)).read())
   return filename
    
 
@@ -82,11 +75,9 @@ def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
 
     finalString = ''.join(finalStringList)
   # Put classified data file into the database
-  mdb = getMongoDB().csynapse_files
-  fs = gridfs.GridFS(mdb)
-  classifiedDataId = fs.put(finalString)
+  classifiedDataId = db.files.put(finalString)
   # Save data Id to cynapse
-  users = getMongoDB().csynapse.users
+  users = db.users
   users.update_one({'_id':userName},\
     {'$set':{'csynapses.{0}.classified.{1}'.format(csynapseName,dataName):classifiedDataId}})
   return
@@ -119,7 +110,7 @@ def runAlgoTest(dataId, algorithm, userName, csynapseName):
 
   newObjectId = str(ObjectId())
   # save result in db
-  userCollection = getMongoDB().csynapse.users
+  userCollection = db.users
   userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
     'time':ret['time'], 'algoId':algorithm}}})
@@ -143,9 +134,7 @@ def taskGetPoints(userName, csynapseName, mongoId):
   for x in dimensions:
     points = getDataPoints(data.data,data.target,x)
     #save result in database
-    mdb = getMongoDB().csynapse_files
-    fs = gridfs.GridFS(mdb)
-    pointsId = fs.put(str(points))
-    userCollection = getMongoDB().csynapse.users
+    pointsId = db.files.put(str(points))
+    userCollection = db.users
     userCollection.update_one({'_id':userName},\
       {'$set':{'csynapses.{0}.points.{1}'.format(csynapseName,x):pointsId}})

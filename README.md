@@ -60,6 +60,13 @@ on error
 401 "Username/Password Combination was not valid"
 ```
 
+### Logout
+```
+@anything /logout
+@returns on success
+
+```
+
 ### Determine who is logged in
 ```
 @get /getUsername

@@ -3,8 +3,7 @@
 from bottle import *
 from tasks import runAlgoTest, classify, taskGetPoints
 import json
-from pymongo import MongoClient
-import gridfs
+from database import db
 from beaker.middleware import SessionMiddleware
 import hashlib
 import os
@@ -24,25 +23,12 @@ session_opts = {
 
 app = SessionMiddleware(app(), session_opts)
 mongoPort = 27017
+db = db('mongo', mongoPort)
 
-def getMongoDB():
-  mdb = MongoClient('mongo', mongoPort)
-  return mdb
 
 def getBeakerSession():
   s = request.environ.get('beaker.session')
   return s
-
-def getDescription(identifier):
-  db = getDB()
-  cursor = db.cursor()
-  select_sql = "SELECT description FROM RequestInformation WHERE identifier='%s'" % (identifier)
-  cursor.execute(select_sql)
-  result = cursor.fetchone()
-  if result != None:
-    return result[0]
-  else:
-    return ""
 
 @get('/healthcheck')
 def healthCheck():
@@ -51,8 +37,9 @@ def healthCheck():
 # Get list of available algorithms from db 
 @get('/algorithms')
 def getAlgorithms():
-  algoCollection = getMongoDB().csynapse.algorithms
+  algoCollection = db.algorithms
   algos = algoCollection.find_one({'_id':'algorithms'})
+  print(algos)
   return json.dumps([{'algoId':x,'description':algos[x][u'description']} for x in algos if(x != u'_id')])
 
 # Get list of all csynapses owned by a user
@@ -60,7 +47,7 @@ def getAlgorithms():
 @get('/csynapses')
 def getCsynapses():
   userName = getUsername()
-  userCollection = getMongoDB().csynapse.users
+  userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   return json.dumps({'csynapses':doc['csynapses'].keys()})
 
@@ -71,7 +58,7 @@ def createCsynapse():
   # get username and csynapse
   userName = getUsername()
   csynapseName = request.params.get('name')
-  userCollection = getMongoDB().csynapse.users
+  userCollection = db.users
 
   ret = ''
   # update only if the csynapse doesn't already exist
@@ -100,12 +87,11 @@ def saveData():
   # return failed status if so
   # Save file in grid fs
 
-  mdb = getMongoDB().csynapse_files
-  fs = gridfs.GridFS(mdb)
+  fs = db.files
   datasetId = fs.put(upload.file)
 
   # store dataset name and mon
-  userCollection = getMongoDB().csynapse.users
+  userCollection = db.users
   userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):datasetId}})
 
@@ -120,7 +106,7 @@ def testAlgorithm():
   csynapseName = request.params.get('name')
   algos = request.params.getall('algorithm')
   # Get dataId
-  userCollection = getMongoDB().csynapse.users
+  userCollection = db.users
 
   doc = userCollection.find_one({'_id':userName})
   dataId = doc['csynapses'][csynapseName]['data_id']
@@ -139,12 +125,11 @@ def getTestResults():
   userName = getUsername()
   csynapseName = request.params.get('name')
 
-  mdb = getMongoDB().csynapse
-  userCollection = mdb.users
+  userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   algos = doc['csynapses'][csynapseName]['algorithms']
   # get descriptions
-  algoCollection = mdb.algorithms
+  algoCollection = db.algorithms
   
   algorithms = algoCollection.find_one({'_id':'algorithms'})
   for x in algorithms:
@@ -167,12 +152,11 @@ def runAlgos():
   upload = request.files.get('upload')
 
   # save new data
-  mdb = getMongoDB()
-  fs = gridfs.GridFS(mdb.csynapse_files)
+  fs = db.files
   newDatasetId = fs.put(upload.file)
 
   # get mongoId of old data
-  userCollection = mdb.csynapse.users
+  userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   oldDataId = doc['csynapses'][csynapseName]['data_id']
   # get algo type
@@ -185,7 +169,7 @@ def runAlgos():
 @get('/getAllAvailableClassified')
 def getClassified():
   userName = getUsername()
-  userCollection = getMongoDB().csynapse.users
+  userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   csynapses = doc['csynapses']
 
@@ -204,9 +188,7 @@ def getClassified():
 @get('/getClassified')
 def getClassified():
   mongoId = request.params.get('mongoId')
-  mdb = getMongoDB().csynapse_files
-  fs = gridfs.GridFS(mdb)
-
+  fs = db.files
   theData = fs.get(ObjectId(mongoId)).read()
   return theData
  
@@ -220,7 +202,7 @@ def getPoints():
   csynapseName = request.params.get('name')
 
   # get dataset Id
-  userCollection = getMongoDB().csynapse.users
+  userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
 
   # see if data points already exist
@@ -248,8 +230,7 @@ def postLogin():
     abort(401, "Password is Required")
   session = getBeakerSession()
   if not 'logged_in' in session or session['logged_in'] == False:
-    mdb = getMongoDB().csynapse
-    users = mdb.csynapse_users
+    users = db.userAuth
     user = users.find_one({"username":username})
     if user != None:
       db_pass = user['password']
@@ -274,17 +255,16 @@ def postRegister():
     abort(401, "Username is Required")
   if password == "" or password == None:
     abort(401, "Password is Required")
-  mdb = getMongoDB().csynapse
-  users = mdb.csynapse_users
-  if users.find_one({"username":username}) == None:
+  usersAuth = db.userAuth
+  if usersAuth.find_one({"username":username}) == None:
     salt = os.urandom(16)
     user_obj = {}
     user_obj['username'] = username
     user_obj['_id'] = username
     user_obj['password'] = base64.b64encode(hashlib.pbkdf2_hmac('sha256', password, salt, 200000))
     user_obj['salt'] = base64.b64encode(salt)
-    users.insert_one(user_obj)
-    users = mdb.users
+    usersAuth.insert_one(user_obj)
+    users = db.users
     users.insert_one({"_id":username})
     return "registered {}".format(username)
   else:
@@ -303,35 +283,6 @@ def postLogout():
   session = getBeakerSession()
   session.delete()
   return "logged out"
-
-@route("/")
-def index():
-  links = """
-  <a href=\""""+prefix+"""/all?human_readable=1">All Available Requests</a><br />
-  <a href=\""""+prefix+"""/new">Submit new Request</a><br />
-  """
-  return links
-
-@get('/new')
-def getNew():
-  
-  algorithms = json.loads(getActiveAlgorithms())
-  algorithms_text = ""
-  for algorithm in algorithms:
-    algorithms_text += "<input type=\"checkbox\" name=\"algorithm\" value=\"%s\" /> %s<br />\n" % (algorithm["identifier"], algorithm["description"])
-  
-  ret = """
-  <form action="new" method="POST" enctype="multipart/form-data">
-  description <input type="text" name="description" /><br />
-  Algorithms: <br />"""+algorithms_text+"""
-  Test File: <input type="file" name="upload" /><br />
-  <input type="hidden" name="redirect" value=\""""+prefix+"""/check" />
-  <input type="submit" value="Submit">
-  
-  </form>
-  
-  """
-  return ret
 
 if __name__ == '__main__':
   run(host='', port=8888, debug=True, reloader=True, app=app)
