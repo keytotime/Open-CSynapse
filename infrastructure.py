@@ -36,6 +36,12 @@ def check_request_for_params(params, fail_status=400):
     if param_obj == "" or param_obj == None:
       raise HTTPResponse(status=fail_status, body=json.dumps({'error':'param {} is required but not provided'.format(param), "error_type":"missing_param", "missing_param":param}))
 
+def check_request_for_files(files, fail_status=400):
+  for file in files:
+    files_obj = request.files.get(file)
+    if files_obj == "" or files_obj == None:
+      raise HTTPResponse(status=fail_status, body=json.dumps({'error':'file {} is required but not provided'.format(file), "error_type":"missing_param", "missing_param":file}))
+
 @get('/healthcheck')
 def healthCheck():
 	return HTTPResponse(status=200, body=json.dumps({200:'ok'}))
@@ -85,7 +91,8 @@ def createCsynapse():
 @post('/data')
 def saveData():
   userName = getUsername()
-  check_request_for_params(["name", "upload"])
+  check_request_for_params(["name"])
+  check_request_for_files(["upload"])
   csynapseName = request.params.get('name')
   upload = request.files.get('upload')
 
@@ -101,7 +108,7 @@ def saveData():
   userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):datasetId}})
 
-  return HTTPResponse(status=200)
+  return HTTPResponse(status=200, body=json.dumps({"message":"data added successfully"}))
 
 # Begins obtaining the cross-validation score on an algorithm
 # @params (body or query) user=userName, name=csynapseName,
@@ -120,9 +127,9 @@ def testAlgorithm():
 
   # pass dataId and algorithms to task
   for algo in algos:
-    runAlgoTest(dataId, algo, userName, csynapseName)
+    runAlgoTest.delay(dataId, algo, userName, csynapseName)
   # return 200
-  return HTTPResponse(status=200)
+  return HTTPResponse(status=200, body=json.dumps({"message":"submitted for testing", "csynapse":csynapseName, "algorithms":algos}))
 
 # Gets the test results for all the algos run on the given csynapse
 # @params (body or query) user=userName, name=csynapseName
@@ -154,7 +161,8 @@ def getTestResults():
 @post('/run')
 def runAlgos():
   userName = getUsername()
-  check_request_for_params(["name", "dataName", "algorithm", "upload"])
+  check_request_for_params(["name", "dataName", "algorithm"])
+  check_request_for_files(["upload"])
   csynapseName = request.params.get('name')
   dataName = request.params.get('dataName')
   algo = request.params.get('algorithm')
@@ -171,7 +179,7 @@ def runAlgos():
   # get algo type
   algoType = doc['csynapses'][csynapseName]['algorithms'][algo]['algoId']
 
-  classify(newDatasetId, oldDataId, algoType, userName, csynapseName, dataName)
+  classify.delay(newDatasetId, oldDataId, algoType, userName, csynapseName, dataName)
 
 # Gets all available classified data
 # @returns {cynapseName:[{datasetname:name, mongoId:id},...]}
@@ -225,11 +233,11 @@ def getPoints():
       fs = gridfs.GridFS(mdb)
       theData = fs.get(ObjectId(val)).read()
       finalList.append({key:theData})
-    return json.dumps(finalList)
+    return HTTPResponse(status=200, body=json.dumps(finalList))
   else: # process the dataset and save the points
     mongoId = str(doc['csynapses'][csynapseName]['data_id'])
-    taskGetPoints(userName, csynapseName, mongoId)
-    return HTTPResponse(status=200)
+    taskGetPoints.delay(userName, csynapseName, mongoId)
+    return HTTPResponse(status=200, body=json.dumps({"message":"points are being generated"}))
 
 # Logs in the user, returning a session cookie with the relevant information
 # @params username, password
@@ -250,13 +258,13 @@ def postLogin():
       if check_pass == db_pass:
         session['logged_in'] = True
         session['username'] = username
-        return "logged in {}".format(username)
+        return HTTPResponse(status=200, body=json.dumps({"message":"logged in {}".format(username)}))
       else:
         return HTTPResponse(status=401, body=json.dumps({"error":"Username/Password Combination was not valid - Type 1"}))
     else:
       return HTTPResponse(status=401, body=json.dumps({"error":"Username/Password Combination was not valid - Type 2"}))
   else:
-    return "Already Logged In"
+    return HTTPResponse(status=400, body=json.dumps({"error":"Already Logged In"}))
     
 # registers a user
 # @params username, password
