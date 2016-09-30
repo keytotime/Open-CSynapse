@@ -14,7 +14,7 @@ import os
 
 app = Celery('tasks', broker='amqp://guest@queue//')
 mongoPort = 27017
-db = db('mongo', mongoPort)
+db = db('mongo', mongoPort, connect=False)
 
 # Returns path to file of data
 def getDataFile(mongoId):
