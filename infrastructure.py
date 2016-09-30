@@ -30,9 +30,15 @@ def getBeakerSession():
   s = request.environ.get('beaker.session')
   return s
 
+def check_request_for_params(params, fail_status=400):
+  for param in params:
+    param_obj = request.params.get(param)
+    if param_obj == "" or param_obj == None:
+      raise HTTPResponse(status=fail_status, body=json.dumps({'error':'param {} is required but not provided'.format(param), "error_type":"missing_param", "missing_param":param}))
+
 @get('/healthcheck')
 def healthCheck():
-	return json.dumps({200:'ok'})
+	return HTTPResponse(status=200, body=json.dumps({200:'ok'}))
 
 # Get list of available algorithms from db 
 @get('/algorithms')
@@ -40,7 +46,7 @@ def getAlgorithms():
   algoCollection = db.algorithms
   algos = algoCollection.find_one({'_id':'algorithms'})
   print(algos)
-  return json.dumps([{'algoId':x,'description':algos[x][u'description']} for x in algos if(x != u'_id')])
+  return HTTPResponse(status=200, body=json.dumps([{'algoId':x,'description':algos[x][u'description']} for x in algos if(x != u'_id')]))
 
 # Get list of all csynapses owned by a user
 # params user=UserName
@@ -49,7 +55,7 @@ def getCsynapses():
   userName = getUsername()
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
-  return json.dumps({'csynapses':doc['csynapses'].keys()})
+  return HTTPResponse(status=200, body=json.dumps({'csynapses':doc['csynapses'].keys()}))
 
 # Creates a new csynapse for the user
 # @params (body or query) user=userName, name=csynapseName to create
@@ -57,6 +63,7 @@ def getCsynapses():
 def createCsynapse():
   # get username and csynapse
   userName = getUsername()
+  check_request_for_params(["name"])
   csynapseName = request.params.get('name')
   userCollection = db.users
 
@@ -66,20 +73,19 @@ def createCsynapse():
   {'$set':{'csynapses.{0}'.format(csynapseName):{}}})
   
   if(r.matched_count == 1):
-    ret = {'status':200,'body':'ok'}
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok"}))
   else:
     if (r.matched_count == 0):
-      ret = {'status':422,'body':'csynapse was not created'}
+      return HTTPResponse(status=422, body=json.dumps({"error":'csynapse was not created'}))
     else:
-      ret = {'status':422,'body':'csynapse already exists'}
-
-  return HTTPResponse(status=ret['status'], body=json.dumps({'message':ret['body']}))
+      return HTTPResponse(status=422, body=json.dumps({"error":"csynapse already exists"}))
 
 # Saves data associated with a cynapse
 # @params user=userName, name=csynapseName, dataName=dataset name
 @post('/data')
 def saveData():
   userName = getUsername()
+  check_request_for_params(["name", "upload"])
   csynapseName = request.params.get('name')
   upload = request.files.get('upload')
 
@@ -103,6 +109,7 @@ def saveData():
 @post('/test')
 def testAlgorithm():
   userName = getUsername()
+  check_request_for_params(["name", "algorithm"])
   csynapseName = request.params.get('name')
   algos = request.params.getall('algorithm')
   # Get dataId
@@ -123,6 +130,7 @@ def testAlgorithm():
 @get('/testResults')
 def getTestResults():
   userName = getUsername()
+  check_request_for_params(["name"])
   csynapseName = request.params.get('name')
 
   userCollection = db.users
@@ -146,6 +154,7 @@ def getTestResults():
 @post('/run')
 def runAlgos():
   userName = getUsername()
+  check_request_for_params(["name", "dataName", "algorithm", "upload"])
   csynapseName = request.params.get('name')
   dataName = request.params.get('dataName')
   algo = request.params.get('algorithm')
@@ -187,6 +196,7 @@ def getClassified():
 # @params mongoId=mongoId of classifiedData
 @get('/getClassified')
 def getClassified():
+  check_request_for_params(["mongoId"])
   mongoId = request.params.get('mongoId')
   fs = db.files
   theData = fs.get(ObjectId(mongoId)).read()
@@ -199,6 +209,7 @@ def getClassified():
 @get('/getPoints')
 def getPoints():
   userName = getUsername()
+  check_request_for_params(["name"])
   csynapseName = request.params.get('name')
 
   # get dataset Id
@@ -220,14 +231,14 @@ def getPoints():
     taskGetPoints(userName, csynapseName, mongoId)
     return HTTPResponse(status=200)
 
+# Logs in the user, returning a session cookie with the relevant information
+# @params username, password
+# returns a cookie as well as a status 
 @post('/login')
 def postLogin():
+  check_request_for_params(["username", "password"], fail_status=401)
   username = request.params.get('username')
   password = request.params.get('password')
-  if username == "" or username == None:
-    abort(401, "Username is Required")
-  if password == "" or password == None:
-    abort(401, "Password is Required")
   session = getBeakerSession()
   if not 'logged_in' in session or session['logged_in'] == False:
     users = db.userAuth
@@ -241,20 +252,19 @@ def postLogin():
         session['username'] = username
         return "logged in {}".format(username)
       else:
-        abort(401, "Username/Password Combination was not valid - Type 1")
+        return HTTPResponse(status=401, body=json.dumps({"error":"Username/Password Combination was not valid - Type 1"}))
     else:
-      abort(401, "Username/Password Combination was not valid - Type 2")
+      return HTTPResponse(status=401, body=json.dumps({"error":"Username/Password Combination was not valid - Type 2"}))
   else:
     return "Already Logged In"
     
+# registers a user
+# @params username, password
 @post('/register')
 def postRegister():
+  check_request_for_params(["username", "password"], fail_status=401)
   username = request.params.get('username')
   password = request.params.get('password')
-  if username == "" or username == None:
-    abort(401, "Username is Required")
-  if password == "" or password == None:
-    abort(401, "Password is Required")
   usersAuth = db.userAuth
   if usersAuth.find_one({"username":username}) == None:
     salt = os.urandom(16)
@@ -276,13 +286,13 @@ def getUsername():
   if "username" in session:
     return session['username']
   else:
-    abort(401, "Not Logged In")
+    raise HTTPResponse(status=401, body=json.dumps({"error":"not logged in"}))
 
 @route('/logout')
 def postLogout():
   session = getBeakerSession()
   session.delete()
-  return "logged out"
+  return HTTPResponse(status=200, body=json.dumps({"message":"logged out"}))
 
 if __name__ == '__main__':
   run(host='', port=8888, debug=True, reloader=True, app=app)
