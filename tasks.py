@@ -134,7 +134,7 @@ def taskGetPoints(userName, csynapseName, mongoId):
   for x in dimensions:
     points = getDataPoints(data.data,data.target,x)
     #save result in database
-    pointsId = db.files.put(str(points))
+    pointsId = db.files.put(json.dumps(points))
     userCollection = db.users
     userCollection.update_one({'_id':userName},\
       {'$set':{'csynapses.{0}.points.{1}'.format(csynapseName,x):pointsId}})

@@ -60,7 +60,10 @@ def getCsynapses():
   userName = getUsername()
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
-  return HTTPResponse(status=200, body=json.dumps({'csynapses':doc['csynapses'].keys()}))
+  if('csynapses' in doc):
+    return HTTPResponse(status=200, body=json.dumps({'csynapses':doc['csynapses'].keys()}))
+  else:
+    return HTTPResponse(status=200, body=json.dumps({'csynapses':[]}))
 
 # Creates a new csynapse for the user
 # @params (body or query) user=userName, name=csynapseName to create
@@ -226,13 +229,11 @@ def getPoints():
   # see if data points already exist
   if('points' in doc['csynapses'][csynapseName].keys()):
     ids = doc['csynapses'][csynapseName]['points']
-    finalList = []
+    ret = {}
     for key, val in ids.items():
-      mdb = getMongoDB().csynapse_files
-      fs = gridfs.GridFS(mdb)
-      theData = fs.get(ObjectId(val)).read()
-      finalList.append({key:theData})
-    return HTTPResponse(status=200, body=json.dumps(finalList))
+      theData = json.loads(db.files.get(ObjectId(val)).read())
+      ret[key] = theData
+    return HTTPResponse(status=200, body=json.dumps(ret))
   else: # process the dataset and save the points
     mongoId = str(doc['csynapses'][csynapseName]['data_id'])
     taskGetPoints.delay(userName, csynapseName, mongoId)
