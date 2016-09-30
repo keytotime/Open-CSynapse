@@ -51,7 +51,8 @@ def healthCheck():
 def getAlgorithms():
   algoCollection = db.algorithms
   algos = algoCollection.find_one({'_id':'algorithms'})
-  return HTTPResponse(status=200, body=json.dumps([{'algoId':x,'description':algos[x][u'description'], 'name':algos[x][u'name']} for x in algos if(x != u'_id')]))
+  return HTTPResponse(status=200, body=json.dumps([{'algoId':x,'description':algos[x][u'description'], \
+    'name':algos[x][u'name'],'type':algos[x][u'type']} for x in algos if(x != u'_id')]))
 
 # Get list of all csynapses owned by a user
 # params user=UserName
