@@ -40,7 +40,7 @@ def getAlgorithms():
   algoCollection = db.algorithms
   algos = algoCollection.find_one({'_id':'algorithms'})
   print(algos)
-  return json.dumps([{'algoId':x,'description':algos[x][u'description']} for x in algos if(x != u'_id')])
+  return json.dumps([{'algoId':x,'description':algos[x][u'description'], 'name':algos[x][u'name']} for x in algos if(x != u'_id')])
 
 # Get list of all csynapses owned by a user
 # params user=UserName
