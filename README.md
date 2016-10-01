@@ -55,16 +55,16 @@ on error
 @post /login
 @params username=Username, password=password
 @returns on success
-200 {"status":"ok"}
+200 {"message":"logged in sam"}
 on error
-401 "Username/Password Combination was not valid"
+{"error":"Username/Password Combination was not valid - Type 1"}... other errors possible
 ```
 
 ### Logout
 ```
 @anything /logout
 @returns on success
-
+200 {"message":"logged out"}
 ```
 
 ### Determine who is logged in
@@ -72,28 +72,28 @@ on error
 @get /getUsername
 @returns
 username if logged in
-401 Not logged in if not logged in
+401 {"error":"not logged in"}
 ```
 
 ### Get all available algorithms
 ```
 @get /algorithms
 @returns list of algorithm ids and descriptions
-[{"algoId":"svm", "description":"SVM algorithm"}...]
+[{"algoId":"svm", "description":"SVM algorithm", "name":"support vector machine", "type":"supervised"}...]
 ```
 
 ### Get all csynapses for a user
 ```
 @get /csynapses
 @returns list of csynapses for a user
-[{"csynapses":["test", "hospital data"...]
+{"csynapses":["test", "hospital data"...]}
 ```
 
 ### Create a new csynapse
 ```
 @post /create
 @params name=nameOfNewCsynapse
-@returns 200 on success
+@returns 200 on success {"status":"ok"}
 ```
 
 ### Get all cross validation test results for a csynapse
@@ -107,14 +107,14 @@ username if logged in
 ```
 @post /data
 @params name=nameOfNewCsynapse, upload=fileOfUploadedData
-@returns 200 on success
+@returns 200 on success {"message":"data added successfully"}
 ```
 
 ### Test algorithms on a CSynapse
 ```
 @post /test
 @params name=csynapseName,algorithm=algoId ... algorithm=algoId
-@ returns 200 on success
+@ returns 200 on success {"message":"submitted for testing", "csynapse":"csynapseName", "algorithms":[algos]}
 ```
 
 ### Get test results for a CSynapse
@@ -154,6 +154,7 @@ iris-black,2,4
 ```
 @get /getPoints
 @params name=csynapseName
-@returns 2 possibilites: if first time calling this route for a csynapse 200 Ok otherwise 1 up to 3 dimensional points (depending on dimensionality of dataset)
-[{"1":{"labelOne":[1,4,6], "labelTwo":[8,9]}, {"2":{"labelOne":[[1,2],[4,5],[8,3]],"labelTwo":[[7,6],[6,4]]}},...}]
+@returns 2 possibilites: if first time calling this route for a csynapse 200 Ok {"message":"points are being generated"}
+otherwise 1 up to 3 dimensional points (depending on dimensionality of dataset)
+{"1":{"labelOne":[1,4,6], "labelTwo":[8,9]}, {"2":{"labelOne":[[1,2],[4,5],[8,3]],"labelTwo":[[7,6],[6,4]]}},...}
 ```
