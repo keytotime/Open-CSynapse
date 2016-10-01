@@ -155,7 +155,7 @@ def getTestResults():
       if(x == val['algoId']):
         val['description'] = algorithms[x]['description']
         val['id'] = key
-  return json.dumps([x for x in algos.itervalues()])
+  return HTTPResponse(status=200, body=json.dumps({"name":csynapseName, "testResults":[x for x in algos.itervalues()]}))
 
   
 # Runs algorithms on new data
