@@ -154,6 +154,7 @@ def getTestResults():
     for key,val in algos.items():
       if(x == val['algoId']):
         val['description'] = algorithms[x]['description']
+        val['name'] = algorithms[x]['name']
         val['id'] = key
   return json.dumps([x for x in algos.itervalues()])
 
