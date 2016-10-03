@@ -44,14 +44,14 @@ def check_request_for_files(files, fail_status=400):
 
 @get('/healthcheck')
 def healthCheck():
-	return HTTPResponse(status=200, body=json.dumps({200:'ok'}))
+	return HTTPResponse(status=200, body=json.dumps({"status":'ok'}))
 
 # Get list of available algorithms from db 
 @get('/algorithms')
 def getAlgorithms():
   algoCollection = db.algorithms
   algos = algoCollection.find_one({'_id':'algorithms'})
-  return HTTPResponse(status=200, body=json.dumps([{'algoId':x,'description':algos[x][u'description'], \
+  return HTTPResponse(status=200, body=json.dumps([{"status":"ok",'algoId':x,'description':algos[x][u'description'], \
     'name':algos[x][u'name'],'type':algos[x][u'type']} for x in algos if(x != u'_id')]))
 
 # Get list of all csynapses owned by a user
@@ -62,9 +62,9 @@ def getCsynapses():
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   if('csynapses' in doc):
-    return HTTPResponse(status=200, body=json.dumps({'csynapses':doc['csynapses'].keys()}))
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok",'csynapses':doc['csynapses'].keys()}))
   else:
-    return HTTPResponse(status=200, body=json.dumps({'csynapses':[]}))
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok",'csynapses':[]}))
 
 # Creates a new csynapse for the user
 # @params (body or query) user=userName, name=csynapseName to create
@@ -85,9 +85,9 @@ def createCsynapse():
     return HTTPResponse(status=200, body=json.dumps({"status":"ok"}))
   else:
     if (r.matched_count == 0):
-      return HTTPResponse(status=422, body=json.dumps({"error":'csynapse was not created'}))
+      return HTTPResponse(status=422, body=json.dumps({"status":"error","error":'csynapse was not created'}))
     else:
-      return HTTPResponse(status=422, body=json.dumps({"error":"csynapse already exists"}))
+      return HTTPResponse(status=422, body=json.dumps({"status":"error","error":"csynapse already exists"}))
 
 # Saves data associated with a cynapse
 # @params user=userName, name=csynapseName, dataName=dataset name
@@ -111,7 +111,7 @@ def saveData():
   userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):datasetId}})
 
-  return HTTPResponse(status=200, body=json.dumps({"message":"data added successfully"}))
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"data added successfully"}))
 
 # Begins obtaining the cross-validation score on an algorithm
 # @params (body or query) user=userName, name=csynapseName,
@@ -132,7 +132,7 @@ def testAlgorithm():
   for algo in algos:
     runAlgoTest.delay(dataId, algo, userName, csynapseName)
   # return 200
-  return HTTPResponse(status=200, body=json.dumps({"message":"submitted for testing", "csynapse":csynapseName, "algorithms":algos}))
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"submitted for testing", "csynapse":csynapseName, "algorithms":algos}))
 
 # Gets the test results for all the algos run on the given csynapse
 # @params (body or query) user=userName, name=csynapseName
@@ -156,7 +156,7 @@ def getTestResults():
         val['description'] = algorithms[x]['description']
         val['name'] = algorithms[x]['name']
         val['id'] = key
-  return HTTPResponse(status=200, body=json.dumps({"name":csynapseName, "testResults":[x for x in algos.itervalues()]}))
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok","name":csynapseName, "testResults":[x for x in algos.itervalues()]}))
 
   
 # Runs algorithms on new data
@@ -184,6 +184,7 @@ def runAlgos():
   algoType = doc['csynapses'][csynapseName]['algorithms'][algo]['algoId']
 
   classify.delay(newDatasetId, oldDataId, algoType, userName, csynapseName, dataName)
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok"}))
 
 # Gets all available classified data
 # @returns {cynapseName:[{datasetname:name, mongoId:id},...]}
@@ -202,7 +203,7 @@ def getClassified():
       for aKey, aVal in val['classified'].items():
         available.append({'datasetName':aKey,'mongoId':str(aVal)})
       finalList.append(toAdd)
-  return json.dumps(finalList)
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok","all_classified":finalList}))
 
 # Gets classified data for the given mongoId
 # @params mongoId=mongoId of classifiedData
@@ -212,7 +213,7 @@ def getClassified():
   mongoId = request.params.get('mongoId')
   fs = db.files
   theData = fs.get(ObjectId(mongoId)).read()
-  return theData
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok","classified_data":theData}))
  
 # Returns the datapoints if they have already been calc'd and saved
 # otherwise queues them up to be saved
@@ -235,11 +236,11 @@ def getPoints():
     for key, val in ids.items():
       theData = json.loads(db.files.get(ObjectId(val)).read())
       ret[key] = theData
-    return HTTPResponse(status=200, body=json.dumps(ret))
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok","points":ret}))
   else: # process the dataset and save the points
     mongoId = str(doc['csynapses'][csynapseName]['data_id'])
     taskGetPoints.delay(userName, csynapseName, mongoId)
-    return HTTPResponse(status=200, body=json.dumps({"message":"points are being generated"}))
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"points are being generated"}))
 
 # Logs in the user, returning a session cookie with the relevant information
 # @params username, password
@@ -260,13 +261,13 @@ def postLogin():
       if check_pass == db_pass:
         session['logged_in'] = True
         session['username'] = username
-        return HTTPResponse(status=200, body=json.dumps({"message":"logged in {}".format(username)}))
+        return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"logged in {}".format(username)}))
       else:
-        return HTTPResponse(status=401, body=json.dumps({"error":"Username/Password Combination was not valid - Type 1"}))
+        return HTTPResponse(status=401, body=json.dumps({"status":"error","error":"Username/Password Combination was not valid - Type 1"}))
     else:
-      return HTTPResponse(status=401, body=json.dumps({"error":"Username/Password Combination was not valid - Type 2"}))
+      return HTTPResponse(status=401, body=json.dumps({"status":"error","error":"Username/Password Combination was not valid - Type 2"}))
   else:
-    return HTTPResponse(status=400, body=json.dumps({"error":"Already Logged In"}))
+    return HTTPResponse(status=400, body=json.dumps({"status":"error","error":"Already Logged In"}))
     
 # registers a user
 # @params username, password
@@ -286,23 +287,23 @@ def postRegister():
     usersAuth.insert_one(user_obj)
     users = db.users
     users.insert_one({"_id":username})
-    return "registered {}".format(username)
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok", "registered":username}))
   else:
-    abort(401, "Username already exists")
+    raise HTTPResponse(status=401, body=json.dumps({"status":"error","error":"Username already exists"}))
 
 @get('/getUsername')
 def getUsername():
   session = getBeakerSession()
   if "username" in session:
-    return session['username']
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok","username":session['username']}))
   else:
-    raise HTTPResponse(status=401, body=json.dumps({"error":"not logged in"}))
+    raise HTTPResponse(status=401, body=json.dumps({"status":"error","error":"not logged in"}))
 
 @route('/logout')
 def postLogout():
   session = getBeakerSession()
   session.delete()
-  return HTTPResponse(status=200, body=json.dumps({"message":"logged out"}))
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"logged out"}))
 
 if __name__ == '__main__':
   run(host='', port=8888, debug=True, reloader=True, app=app)
