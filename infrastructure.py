@@ -90,13 +90,16 @@ def createCsynapse():
       return HTTPResponse(status=422, body=json.dumps({"status":"error","error":"csynapse already exists"}))
 
 # Saves data associated with a cynapse
-# @params user=userName, name=csynapseName, dataName=dataset name
+# @params user=userName, name=csynapseName, dataName=dataset name,
+# image=true flag indicating image data
 @post('/data')
 def saveData():
   userName = getUsername()
   check_request_for_params(["name"])
   check_request_for_files(["upload"])
   csynapseName = request.params.get('name')
+
+  # check to see if we have image data
   upload = request.files.get('upload')
 
   # TODO Check if cynapse name and dataset Name already exists
