@@ -2,15 +2,17 @@
 from celery import Celery
 import json
 from MachineLearning.BuildClassifier import getDiscreetClassifier
-from MachineLearning.Clean import cleanData, cleanUntagged, getHeaders
+from MachineLearning.Clean import cleanData, cleanUntagged, getHeaders, regressionData
 from MachineLearning.CrossValidate import doShuffleCrossValidation
 from MachineLearning.GetDataPoints import getDataPoints
 from MachineLearning.ClassifyData import predict
+from MachineLearning.Regression import reg
 import MachineLearning.RunExternal as runEx
 from database import db
 from bson.objectid import ObjectId
 import os
-
+import itertools
+from numpy import transpose
 
 app = Celery('tasks', broker='amqp://guest@queue//')
 mongoPort = 27017
@@ -138,3 +140,37 @@ def taskGetPoints(userName, csynapseName, mongoId):
     userCollection = db.users
     userCollection.update_one({'_id':userName},\
       {'$set':{'csynapses.{0}.points.{1}'.format(csynapseName,x):pointsId}})
+
+@app.task
+def regression(userName, csynapseName, mongoId):
+  data = ''
+
+  data = regressionData(getDataFile(mongoId))
+
+  print(data)
+  # yields list of [(index,value),...]
+  indexedHeaders = [indexed for indexed in enumerate(data.headers)]
+
+  # yields list of [((index,value),(index,value))...]
+  combinations = [combo for combo in itertools.combinations(indexedHeaders,2)]
+
+  # Get data into list of columns
+  transposedData = transpose(data.data)
+  # Do regressions. Yields (headerOne, HeaderTwo, (rValue_strength, pValue_))
+  finalList = []
+  for x in combinations:
+    print(x)
+    print('hello\n\n\n')
+    d = {}
+    d['h1'] = x[0][1]
+    d['h2'] =  x[1][1]
+    regResults = reg(transposedData[x[0][0]], transposedData[x[1][0]])
+    d['r'] = regResults.r
+    d['p'] = regResults.p
+    finalList.append(d)
+
+  regressionId = db.files.put(json.dumps(finalList))
+  userCollection = db.users
+  userCollection.update_one({'_id':userName},\
+    {'$set':{'csynapses.{0}.regression'.format(csynapseName):regressionId}})
+  

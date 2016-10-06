@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from bottle import *
-from tasks import runAlgoTest, classify, taskGetPoints
+from tasks import runAlgoTest, classify, taskGetPoints, regression
 import json
 from database import db
 from beaker.middleware import SessionMiddleware
@@ -61,7 +61,7 @@ def getCsynapses():
   userName = getUsername()
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
-  if('csynapses' in doc):
+  if(doc is not None and 'csynapses' in doc):
     return HTTPResponse(status=200, body=json.dumps({'csynapses':doc['csynapses'].keys()}))
   else:
     return HTTPResponse(status=200, body=json.dumps({'csynapses':[]}))
@@ -113,6 +113,9 @@ def saveData():
   userCollection = db.users
   userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):datasetId}})
+
+  # queue up regression tasks
+  regression(userName, csynapseName, datasetId)
 
   return HTTPResponse(status=200, body=json.dumps({"message":"data added successfully"}))
 
@@ -217,9 +220,27 @@ def getClassified():
   theData = fs.get(ObjectId(mongoId)).read()
   return theData
  
+# Gets regression data for a csynapse
+# @params name=csynapseName
+@get('/regressionData')
+def getRegressionData():
+  userName = getUsername()
+  check_request_for_params(['name'])
+  csynapseName = request.params.get('name')
+  # Get data Id
+  userCollection = db.users
+  doc = userCollection.find_one({'_id':userName})
+  try:
+    dataId = doc['csynapses'][csynapseName]['regression']
+    regData = json.loads(db.files.get(ObjectId(dataId)).read())
+    return json.dumps({'status':'ok', 'regressionData':regData})
+  except Exception as e:
+    raise e
+    return HTTPResponse(status=500, body=json.dumps({"status":"error getting regression data"}))
+
 # Returns the datapoints if they have already been calc'd and saved
 # otherwise queues them up to be saved
-# @params user=userName, name=csynapseName
+# @params name=csynapseName
 # @returns {'1':{label:[listOf 1 d points],otherLabel:[]...}, '2':{label:[list of 2 d points]}}}
 @get('/getPoints')
 def getPoints():
