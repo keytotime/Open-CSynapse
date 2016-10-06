@@ -115,7 +115,7 @@ def saveData():
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):datasetId}})
 
   # queue up regression tasks
-  regression(userName, csynapseName, datasetId)
+  regression.delay(userName, csynapseName, datasetId)
 
   return HTTPResponse(status=200, body=json.dumps({"message":"data added successfully"}))
 
