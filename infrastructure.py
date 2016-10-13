@@ -45,6 +45,19 @@ def check_request_for_files(files, fail_status=400):
 @get('/healthcheck')
 def healthCheck():
 	return HTTPResponse(status=200, body=json.dumps({"status":'ok'}))
+  
+@post('/multifile_test')
+def multifile_test():
+  uploads = request.files.getall("upload")
+  ret = []
+  for upload in uploads:
+    ret.append(upload.filename)
+  return HTTPResponse(status=200, body=json.dumps(ret))
+  
+@get("/recall_test")
+def recall_test():
+  csynapses = getCsynapses()
+  return csynapses
 
 # Get list of available algorithms from db 
 @get('/algorithms')
@@ -104,6 +117,7 @@ def saveData():
 
   # TODO Check if cynapse name and dataset Name already exists
   # return failed status if so
+  
   # Save file in grid fs
 
   fs = db.files
