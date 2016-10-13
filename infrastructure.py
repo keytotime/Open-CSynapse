@@ -102,20 +102,27 @@ def saveData():
   # check to see if we have image data
   upload = request.files.get('upload')
 
-  # TODO Check if cynapse name and dataset Name already exists
-  # return failed status if so
-  # Save file in grid fs
+  # Check if csynapse already has data
+  userCollection = db.users
+  doc = userCollection.find_one({'_id':userName})
 
+  if(doc is not None and doc['csynapses'] is not None):
+    if(csynapseName in doc['csynapses'].keys() and 'data_id' in doc['csynapses'][csynapseName].keys()):
+      return HTTPResponse(status=400, body=json.dumps({"status": "bad request","message":"csynapse already has data"}))
+
+  # Save file in grid fs
   fs = db.files
   datasetId = fs.put(upload.file)
 
   # store dataset name and mon
-  userCollection = db.users
   userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):datasetId}})
 
   # queue up regression tasks
   regression.delay(userName, csynapseName, datasetId)
+
+  # queue up points task
+  taskGetPoints.delay(userName, csynapseName, datasetId)
 
   return HTTPResponse(status=200, body=json.dumps({"message":"data added successfully"}))
 
@@ -239,7 +246,6 @@ def getRegressionData():
     return HTTPResponse(status=500, body=json.dumps({"status":"error getting regression data"}))
 
 # Returns the datapoints if they have already been calc'd and saved
-# otherwise queues them up to be saved
 # @params name=csynapseName
 # @returns {'1':{label:[listOf 1 d points],otherLabel:[]...}, '2':{label:[list of 2 d points]}}}
 @get('/getPoints')
@@ -260,9 +266,7 @@ def getPoints():
       theData = json.loads(db.files.get(ObjectId(val)).read())
       ret[key] = theData
     return HTTPResponse(status=200, body=json.dumps(ret))
-  else: # process the dataset and save the points
-    mongoId = str(doc['csynapses'][csynapseName]['data_id'])
-    taskGetPoints.delay(userName, csynapseName, mongoId)
+  else:
     return HTTPResponse(status=200, body=json.dumps({"message":"points are being generated"}))
 
 # Logs in the user, returning a session cookie with the relevant information
