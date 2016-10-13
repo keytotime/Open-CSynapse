@@ -2,7 +2,6 @@
 # Used to Prepare data for ML algorithms
 from collections import namedtuple
 import csv
-
 # returns (data, labels)
 def cleanData(fileName):
 	# list of labels
@@ -55,8 +54,42 @@ def cleanUntagged(filename):
 	DataLabels = namedtuple('DataLabels','headers,data')
 	return DataLabels(possibleHeader, data)
 
+
+def regressionData(filename):
+	#list of data
+	data = []
+	headers = ''
+	# Read data in from file
+	with open(filename, 'r') as f:
+		headers = f.readline()
+		hasHeader = csv.Sniffer().has_header(headers)
+		if(not hasHeader):
+			raise ValueError('No Headers in File')
+
+		headers = [x.rstrip() for x in headers.split(',')]
+		firstLine = [x.rstrip() for x in f.readline().split(',')]
+		nonFloatIndexes = set()
+		removeTheseHeaders = set()
+		for index, x in enumerate(firstLine):
+			try:
+				float(x)
+			except Exception:
+				nonFloatIndexes.add(index)
+				removeTheseHeaders.add(headers[index])
+
+		headers = [x for x in headers if(x not in removeTheseHeaders)]
+		reader = csv.reader(f, skipinitialspace=True)
+		# skip first row of headers
+		reader.next()
+		for line in reader:
+			casted = [float(value[1]) for value in enumerate(line) if(value[0] not in nonFloatIndexes)]
+			data.append(casted)
+
+	# Tuple mapping for returning data and labels
+	DataLabels = namedtuple('DataLabels','headers,data')
+	return DataLabels(headers, data)
+
 def getHeaders(filename):
-	possibleHeader = ''
 	# Read data in from file
 	with open(filename, 'r') as f:
 		possibleHeader = f.readline()

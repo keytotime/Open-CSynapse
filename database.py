@@ -7,4 +7,4 @@ class db:
 		self.algorithms = self.client.csynapse.algorithms
 		self.users = self.client.csynapse.users
 		self.files = gridfs.GridFS(self.client.csynapse_files)
-		self.userAuth = self.client.cysnapse.csynapse_users
+		self.userAuth = self.client.auth.csynapse_users
