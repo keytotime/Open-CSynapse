@@ -53,19 +53,15 @@ def multifile_test():
   for upload in uploads:
     ret.append(upload.filename)
   return HTTPResponse(status=200, body=json.dumps(ret))
-  
-@get("/recall_test")
-def recall_test():
-  csynapses = getCsynapses()
-  return csynapses
 
 # Get list of available algorithms from db 
 @get('/algorithms')
 def getAlgorithms():
   algoCollection = db.algorithms
   algos = algoCollection.find_one({'_id':'algorithms'})
-  return HTTPResponse(status=200, body=json.dumps([{"status":"ok",'algoId':x,'description':algos[x][u'description'], \
-    'name':algos[x][u'name'],'type':algos[x][u'type']} for x in algos if(x != u'_id')]))
+  algorithms = [{'algoId':x,'description':algos[x][u'description'], \
+    'name':algos[x][u'name'],'type':algos[x][u'type']} for x in algos if(x != u'_id')]
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok", "algorithms":algorithms}))
 
 # Get list of all csynapses owned by a user
 # params user=UserName
@@ -75,7 +71,7 @@ def getCsynapses():
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   if(doc is not None and 'csynapses' in doc):
-    return HTTPResponse(status=200, body=json.dumps({'csynapses':doc['csynapses'].keys()}))
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok",'csynapses':doc['csynapses'].keys()}))
   else:
     return HTTPResponse(status=200, body=json.dumps({"status":"ok",'csynapses':[]}))
 
@@ -117,7 +113,11 @@ def saveData():
 
   # TODO Check if cynapse name and dataset Name already exists
   # return failed status if so
-  
+  userCollection = db.users
+  doc = userCollection.find_one({'_id':userName})
+  if(doc is not None and 'csynapses' in doc):
+    if csynapseName not in doc['csynapses'].keys():
+      return HTTPResponse(status=422, body=json.dumps({"status":"error","error":'csynapse {} does not exist'.format(csynapseName)}))
   # Save file in grid fs
 
   fs = db.files
@@ -329,11 +329,18 @@ def postRegister():
   else:
     raise HTTPResponse(status=401, body=json.dumps({"status":"error","error":"Username already exists"}))
 
-@get('/getUsername')
 def getUsername():
   session = getBeakerSession()
   if "username" in session:
-    return HTTPResponse(status=200, body=json.dumps({"status":"ok","username":session['username']}))
+    return session['username']
+  else:
+    return None
+
+@get('/getUsername')
+def getHTTPUsername():
+  username = getUsername()
+  if username != None:
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok","username":username}))
   else:
     raise HTTPResponse(status=401, body=json.dumps({"status":"error","error":"not logged in"}))
 
@@ -345,3 +352,5 @@ def postLogout():
 
 if __name__ == '__main__':
   run(host='', port=8888, debug=True, reloader=True, app=app)
+
+
