@@ -162,7 +162,6 @@ def regression(userName, csynapseName, mongoId):
 
   data = regressionData(getDataFile(mongoId))
 
-  print(data)
   # yields list of [(index,value),...]
   indexedHeaders = [indexed for indexed in enumerate(data.headers)]
 
@@ -174,14 +173,13 @@ def regression(userName, csynapseName, mongoId):
   # Do regressions. Yields (headerOne, HeaderTwo, (rValue_strength, pValue_))
   finalList = []
   for x in combinations:
-    print(x)
-    print('hello\n\n\n')
     d = {}
     d['h1'] = x[0][1]
     d['h2'] =  x[1][1]
     regResults = reg(transposedData[x[0][0]], transposedData[x[1][0]])
     d['r'] = regResults.r
     d['p'] = regResults.p
+    d['rSquared'] = regResults.r * regResults.r
     finalList.append(d)
 
   regressionId = db.files.put(json.dumps(finalList))
