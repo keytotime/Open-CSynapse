@@ -24,7 +24,22 @@ def getDataFile(mongoId):
   with open(filename, 'w') as f:
     f.write(db.files.get(ObjectId(mongoId)).read())
   return filename
-   
+
+def getMultiPartDataFiles(csynapseName):
+  obj = db.users.find_one({"_id":"dan"}, {"csynapses.{}.multipart_data".format(csynapseName):1})
+  ids = obj["csynapses"]["{}".format(csynapseName)]["multipart_data"]
+  files = []
+  for file in ids:
+    files.append(getDataFile(file))
+  return files
+
+@app.task
+def process_photos(userName, csynapseName):
+  files = getMultiPartDataFiles(csynapseName)
+  
+  #should do feature vectorization
+  #should then store in gridfs and write id to csynapses.csynapseName.data_id
+  #should call regression and points
 
 @app.task
 def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
