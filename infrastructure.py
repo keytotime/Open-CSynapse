@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from bottle import *
-from tasks import runAlgoTest, classify, taskGetPoints, regression
+from tasks import runAlgoTest, classify, taskGetPoints, regression, process_photos
 import json
 from database import db
 from beaker.middleware import SessionMiddleware
