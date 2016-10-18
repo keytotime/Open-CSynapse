@@ -24,7 +24,22 @@ def getDataFile(mongoId):
   with open(filename, 'w') as f:
     f.write(db.files.get(ObjectId(mongoId)).read())
   return filename
-   
+
+def getMultiPartDataFiles(csynapseName):
+  obj = db.users.find_one({"_id":"dan"}, {"csynapses.{}.multipart_data".format(csynapseName):1})
+  ids = obj["csynapses"]["{}".format(csynapseName)]["multipart_data"]
+  files = []
+  for file in ids:
+    files.append(getDataFile(file))
+  return files
+
+@app.task
+def process_photos(userName, csynapseName):
+  files = getMultiPartDataFiles(csynapseName)
+  
+  #should do feature vectorization
+  #should then store in gridfs and write id to csynapses.csynapseName.data_id
+  #should call regression and points
 
 @app.task
 def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
@@ -147,7 +162,6 @@ def regression(userName, csynapseName, mongoId):
 
   data = regressionData(getDataFile(mongoId))
 
-  print(data)
   # yields list of [(index,value),...]
   indexedHeaders = [indexed for indexed in enumerate(data.headers)]
 
@@ -159,14 +173,13 @@ def regression(userName, csynapseName, mongoId):
   # Do regressions. Yields (headerOne, HeaderTwo, (rValue_strength, pValue_))
   finalList = []
   for x in combinations:
-    print(x)
-    print('hello\n\n\n')
     d = {}
     d['h1'] = x[0][1]
     d['h2'] =  x[1][1]
     regResults = reg(transposedData[x[0][0]], transposedData[x[1][0]])
     d['r'] = regResults.r
     d['p'] = regResults.p
+    d['rSquared'] = regResults.r * regResults.r
     finalList.append(d)
 
   regressionId = db.files.put(json.dumps(finalList))

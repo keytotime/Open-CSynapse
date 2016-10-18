@@ -255,12 +255,16 @@ def getRegressionData():
   userName = getUsername()
   check_request_for_params(['name'])
   csynapseName = request.params.get('name')
+  pValue = request.params.get('p')
   # Get data Id
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   try:
     dataId = doc['csynapses'][csynapseName]['regression']
     regData = json.loads(db.files.get(ObjectId(dataId)).read())
+    if(pValue is not None):
+      regData = [x for x in regData if(x['p'] <= float(pValue))]
+    regData.sort(key=lambda obj:obj['rSquared'], reverse=True)
     return json.dumps({'status':'ok', 'regressionData':regData})
   except Exception as e:
     raise e
