@@ -32,27 +32,29 @@ def getBeakerSession():
 
 def check_request_for_params(params, fail_status=400):
   for param in params:
-    param_obj = request.params.get(param)
-    if param_obj == "" or param_obj == None:
-      raise HTTPResponse(status=fail_status, body=json.dumps({'error':'param {} is required but not provided'.format(param), "error_type":"missing_param", "missing_param":param}))
+    param_obj = request.params.getall(param)
+    if param_obj == [] or param_obj == None:
+      raise HTTPResponse(status=fail_status, body=json.dumps({"status":"error",'error':'param {} is required but not provided'.format(param), "error_type":"missing_param", "missing_param":param}))
 
 def check_request_for_files(files, fail_status=400):
   for file in files:
-    files_obj = request.files.get(file)
-    if files_obj == "" or files_obj == None:
-      raise HTTPResponse(status=fail_status, body=json.dumps({'error':'file {} is required but not provided'.format(file), "error_type":"missing_param", "missing_param":file}))
+    files_obj = request.files.getall(file)
+    print files_obj
+    if files_obj == [] or files_obj == None:
+      raise HTTPResponse(status=fail_status, body=json.dumps({"status":"error",'error':'file param {} is required but not provided'.format(file), "error_type":"missing_param", "missing_param":file}))
 
 @get('/healthcheck')
 def healthCheck():
 	return HTTPResponse(status=200, body=json.dumps({"status":'ok'}))
   
-@post('/multifile_test')
-def multifile_test():
-  uploads = request.files.getall("upload")
-  ret = []
-  for upload in uploads:
-    ret.append(upload.filename)
-  return HTTPResponse(status=200, body=json.dumps(ret))
+@get('/mongotest')
+def mongotest():
+  check_request_for_params(["name"])
+  csynapseName = request.params.get('name')
+  obj = db.users.find_one({"_id":"dan"}, {"csynapses.{}.data_id".format(csynapseName):1})
+  data = obj["csynapses"]["{}".format(csynapseName)]["data_id"]
+  data = data[0]
+  return "object: {}".format(str(data._ObjectId__id))
 
 # Get list of available algorithms from db 
 @get('/algorithms')
@@ -108,9 +110,6 @@ def saveData():
   check_request_for_files(["upload"])
   csynapseName = request.params.get('name')
 
-  # check to see if we have image data
-  upload = request.files.get('upload')
-
   # Check if csynapse already has data
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
@@ -120,20 +119,30 @@ def saveData():
   if(doc is not None and doc['csynapses'] is not None):
     if(csynapseName in doc['csynapses'].keys() and 'data_id' in doc['csynapses'][csynapseName].keys()):
       return HTTPResponse(status=422, body=json.dumps({"status": "error","error":"csynapse already has data"}))
-
-  # Save file in grid fs
+  
+  # check to see if we have image data
+  uploads = request.files.getall('upload')
+  print "uploads: {}".format(uploads)
   fs = db.files
-  datasetId = fs.put(upload.file)
-
+  files_list = []
+  for upload in uploads:
+    datasetId = fs.put(upload.file)
+    files_list.append(datasetId)
   # store dataset name and mon
-  userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.data_id'.format(csynapseName):datasetId}})
-
-  # queue up regression tasks
-  regression.delay(userName, csynapseName, datasetId)
-
-  # queue up points task
-  taskGetPoints.delay(userName, csynapseName, datasetId)
+  print files_list
+  if len(uploads) == 1:
+    userCollection.update_one({'_id':userName}, \
+    {'$set':{'csynapses.{0}.data_id'.format(csynapseName):files_list[0]}})
+    
+    # queue up regression tasks
+    regression.delay(userName, csynapseName, files_list[0])
+    # queue up points task
+    taskGetPoints.delay(userName, csynapseName, files_list[0])
+  elif len(uploads) > 1:
+    userCollection.update_one({'_id':userName}, \
+    {'$set':{'csynapses.{0}.multipart_data'.format(csynapseName):files_list}})
+    
+    process_photos.delay(userName, csynapseName)
 
   return HTTPResponse(status=200, body=json.dumps({"message":"data added successfully"}))
 
@@ -337,7 +346,7 @@ def getUsername():
   if "username" in session:
     return session['username']
   else:
-    return None
+    raise HTTPResponse(status=401, body=json.dumps({"status":"error","error":"not logged in"}))
 
 @get('/getUsername')
 def getHTTPUsername():
