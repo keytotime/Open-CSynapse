@@ -129,11 +129,9 @@ def saveData():
     datasetId = fs.put(upload.file)
     files_list.append(datasetId)
   # store dataset name and mon
-  print files_list
   if len(uploads) == 1:
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):files_list[0]}})
-    
     # queue up regression tasks
     regression.delay(userName, csynapseName, files_list[0])
     # queue up points task
@@ -145,6 +143,25 @@ def saveData():
     process_photos.delay(userName, csynapseName)
 
   return HTTPResponse(status=200, body=json.dumps({"message":"data added successfully"}))
+
+@get('/getData')
+def getData():
+  check_request_for_params(["name"])
+  userName = getUsername()
+  csynapseName = request.params.get('name')
+  userCollection = db.users
+  doc = userCollection.find_one({'_id':userName})
+  if(doc is not None and 'csynapses' in doc):
+    if csynapseName not in doc['csynapses'].keys():
+      return HTTPResponse(status=422, body=json.dumps({"status":"error","error":'csynapse {} does not exist'.format(csynapseName)}))
+  if(doc is not None and doc['csynapses'] is not None):
+    if(csynapseName in doc['csynapses'].keys() and 'data_id' not in doc['csynapses'][csynapseName].keys()):
+      return HTTPResponse(status=422, body=json.dumps({"status": "error","error":"csynapse has no data"}))
+
+  mongoId = doc['csynapses'][csynapseName]['data_id']
+  fs = db.files
+  theData = fs.get(ObjectId(mongoId)).read()
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok","data":theData}))
 
 # Begins obtaining the cross-validation score on an algorithm
 # @params (body or query) user=userName, name=csynapseName,
