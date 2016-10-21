@@ -124,19 +124,22 @@ def saveData():
   uploads = request.files.getall('upload')
   print "uploads: {}".format(uploads)
   fs = db.files
-  files_list = []
-  for upload in uploads:
-    datasetId = fs.put(upload.file)
-    files_list.append(datasetId)
   # store dataset name and mon
   if len(uploads) == 1:
+    dataId = ''
+    for upload in uploads:
+      dataId = fs.put(upload.file.read().replace('\r\n','\n'))
     userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.data_id'.format(csynapseName):files_list[0]}})
+    {'$set':{'csynapses.{0}.data_id'.format(csynapseName):dataId}})
     # queue up regression tasks
-    regression.delay(userName, csynapseName, files_list[0])
+    regression.delay(userName, csynapseName, dataId)
     # queue up points task
-    taskGetPoints.delay(userName, csynapseName, files_list[0])
+    taskGetPoints.delay(userName, csynapseName, dataId)
   elif len(uploads) > 1:
+    files_list = []
+    for upload in uploads:
+      datasetId = fs.put(upload.file)
+      files_list.append(datasetId)
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.multipart_data'.format(csynapseName):files_list}})
     
