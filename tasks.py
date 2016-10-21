@@ -37,7 +37,7 @@ def getMultiPartDataFiles(userName, csynapseName):
 @app.task
 def process_photos(userName, csynapseName):
   fileNames = getMultiPartDataFiles(userName,csynapseName)
-  stringData = vectorizeImages(csynapseName)
+  stringData = vectorizeImages(fileNames)
   
   dataId = db.files.put(stringData)
   userCollection = db.users

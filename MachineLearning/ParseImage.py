@@ -23,8 +23,8 @@ def vectorizeImages(filenames):
 	# Get pixel data according to minimum size
 	pixelData = [getPixels(x, size) for x in filenames]
 	# Set number of components
-	components = constants.PCA_COMPONENTS
-	if(len(pixelData[0]) < constants.PCA_COMPONENTS):
+	components = Constants.PCA_COMPONENTS
+	if(len(pixelData[0]) < Constants.PCA_COMPONENTS):
 		components = len(pixelData[0])
 	# Init PCA algo
 	pca = PCA(n_components=components,copy=False)
