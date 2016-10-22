@@ -7,6 +7,7 @@ from MachineLearning.CrossValidate import doShuffleCrossValidation
 from MachineLearning.GetDataPoints import getDataPoints
 from MachineLearning.ClassifyData import predict
 from MachineLearning.Regression import reg
+from MachineLearning.ParseImage import vectorizeImages
 import MachineLearning.RunExternal as runEx
 from database import db
 from bson.objectid import ObjectId
@@ -25,8 +26,8 @@ def getDataFile(mongoId):
     f.write(db.files.get(ObjectId(mongoId)).read())
   return filename
 
-def getMultiPartDataFiles(csynapseName):
-  obj = db.users.find_one({"_id":"dan"}, {"csynapses.{}.multipart_data".format(csynapseName):1})
+def getMultiPartDataFiles(userName, csynapseName):
+  obj = db.users.find_one({"_id":userName}, {"csynapses.{}.multipart_data".format(csynapseName):1})
   ids = obj["csynapses"]["{}".format(csynapseName)]["multipart_data"]
   files = []
   for file in ids:
@@ -35,10 +36,13 @@ def getMultiPartDataFiles(csynapseName):
 
 @app.task
 def process_photos(userName, csynapseName):
-  files = getMultiPartDataFiles(csynapseName)
+  fileNames = getMultiPartDataFiles(userName,csynapseName)
+  stringData = vectorizeImages(fileNames)
   
-  #should do feature vectorization
-  #should then store in gridfs and write id to csynapses.csynapseName.data_id
+  dataId = db.files.put(stringData)
+  userCollection = db.users
+  userCollection.update_one({'_id':userName},\
+      {'$set':{'csynapses.{0}.data_id'.format(csynapseName):dataId}})
   #should call regression and points
 
 @app.task
