@@ -9,6 +9,10 @@ import hashlib
 import os
 import base64
 from bson.objectid import ObjectId
+import zipfile
+import uuid
+from os import listdir
+from os.path import isfile, isdir, join
 
 #prefix = "/app"
 prefix = ""
@@ -109,6 +113,10 @@ def saveData():
   check_request_for_params(["name"])
   check_request_for_files(["upload"])
   csynapseName = request.params.get('name')
+  if "zipped" in request.POST and (request.params.get("zipped") in ["true", "True", "TRUE"]):
+    zipped = True
+  else:
+    zipped = False
 
   # Check if csynapse already has data
   userCollection = db.users
@@ -122,15 +130,58 @@ def saveData():
   
   # check to see if we have image data
   uploads = request.files.getall('upload')
-  print "uploads: {}".format(uploads)
+  #print "uploads: {}".format(uploads)
   fs = db.files
   files_list = []
+  tag_map = {}
   for upload in uploads:
-    datasetId = fs.put(upload.file)
-    files_list.append(datasetId)
+    if zipped == False:
+      datasetId = fs.put(upload.file)
+      files_list.append(datasetId)
+    else:
+      unique_tmp_file = uuid.uuid4()
+      unique_tmp_folder = uuid.uuid4()
+      #http://stackoverflow.com/questions/15050064/how-to-upload-and-save-a-file-using-bottle-framework
+      save_path = "/tmp/{}".format(unique_tmp_file)
+      if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+      file_path = "{path}/{file}".format(path=save_path, file=upload.filename)
+      upload.save(file_path)
+      tmp_path = "/tmp/{}".format(unique_tmp_folder)
+      zip_ref = zipfile.ZipFile(file_path, "r")
+      zip_ref.extractall(tmp_path)
+      zip_ref.close()
+      #http://stackoverflow.com/questions/3207219/how-to-list-all-files-of-a-directory-in-python
+      tags = [f for f in listdir(tmp_path) if isdir(join(tmp_path, f))]
+      if "__MACOSX" in tags:
+        tags.remove("__MACOSX")
+      if len(tags) == 1:
+        tmp_path = tmp_path+"/"+tags[0]
+        tags = [f for f in listdir(tmp_path) if isdir(join(tmp_path, f))]
+      for tag in tags:
+        tag_map[tag] = []
+        tag_folder = "{}/{}".format(tmp_path, tag)
+        unzipped_files = [f for f in listdir(tag_folder) if isfile(join(tag_folder, f))]
+        for ufile in unzipped_files:
+          f = open("{}/{}".format(tag_folder, ufile), "r")
+          datasetId = fs.put(f)
+          f.close()
+          files_list.append(datasetId)
+          tag_map[tag].append(datasetId)
+          print ufile
+      print listdir(tmp_path)
+      print tmp_path
+      print unzipped_files
+      print "ufiles"
+      print tag_map
+      
+      
+    
   # store dataset name and mon
+  print "files_list"
   print files_list
-  if len(uploads) == 1:
+  if len(files_list) == 1:
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):files_list[0]}})
     
@@ -138,9 +189,12 @@ def saveData():
     regression.delay(userName, csynapseName, files_list[0])
     # queue up points task
     taskGetPoints.delay(userName, csynapseName, files_list[0])
-  elif len(uploads) > 1:
+  elif len(files_list) > 1 or zipped:
+    print "made it to multipart mongo"
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.multipart_data'.format(csynapseName):files_list}})
+    userCollection.update_one({'_id':userName}, \
+    {'$set':{'csynapses.{0}.multipart_data_tagmap'.format(csynapseName):tag_map}})
     
     process_photos.delay(userName, csynapseName)
 
