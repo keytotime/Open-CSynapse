@@ -169,18 +169,7 @@ def saveData():
           f.close()
           files_list.append(datasetId)
           tag_map[tag].append(datasetId)
-          print ufile
-      print listdir(tmp_path)
-      print tmp_path
-      print unzipped_files
-      print "ufiles"
-      print tag_map
-      
-      
-    
   # store dataset name and mon
-  print "files_list"
-  print files_list
   if len(files_list) == 1:
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):files_list[0]}})
@@ -190,7 +179,6 @@ def saveData():
     # queue up points task
     taskGetPoints.delay(userName, csynapseName, files_list[0])
   elif len(files_list) > 1 or zipped:
-    print "made it to multipart mongo"
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.multipart_data'.format(csynapseName):files_list}})
     userCollection.update_one({'_id':userName}, \
