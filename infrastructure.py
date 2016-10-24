@@ -43,7 +43,6 @@ def check_request_for_params(params, fail_status=400):
 def check_request_for_files(files, fail_status=400):
   for file in files:
     files_obj = request.files.getall(file)
-    print files_obj
     if files_obj == [] or files_obj == None:
       raise HTTPResponse(status=fail_status, body=json.dumps({"status":"error",'error':'file param {} is required but not provided'.format(file), "error_type":"missing_param", "missing_param":file}))
 
@@ -172,7 +171,7 @@ def saveData():
   # store dataset name and mon
   if len(files_list) == 1:
     userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.data_id'.format(csynapseName):dataId}})
+    {'$set':{'csynapses.{0}.data_id'.format(csynapseName):files_list[0]}})
     # queue up regression tasks
     regression.delay(userName, csynapseName, dataId)
     # queue up points task

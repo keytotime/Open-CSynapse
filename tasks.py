@@ -37,13 +37,25 @@ def getMultiPartDataFiles(userName, csynapseName):
 @app.task
 def process_photos(userName, csynapseName):
   fileNames = getMultiPartDataFiles(userName,csynapseName)
-  stringData = vectorizeImages(fileNames)
+  userCollection = db.users
+  doc = userCollection.find_one({'_id':userName})
+
+  labelMap = doc['csynapses'][csynapseName]['multipart_data_tagmap']
+
+  # make dictionary mapping labels to lists of filenames
+  mappedFiles = {}
+  for key, value in labelMap.iteritems():
+    mappedFiles[key] = [getDataFile(mongoId) for mongoId in value]  
+
+  stringData = vectorizeImages(mappedFiles)
   
   dataId = db.files.put(stringData)
-  userCollection = db.users
+  
   userCollection.update_one({'_id':userName},\
       {'$set':{'csynapses.{0}.data_id'.format(csynapseName):dataId}})
-  #should call regression and points
+ 
+  taskGetPoints(userName, csynapseName, dataId)
+
 
 @app.task
 def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
@@ -89,7 +101,7 @@ def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
     # Put data into string to save
     for x in result:
       finalStringList.append(str(x[0]) + ',')
-      for v in x[1]:
+      for v in x[1][:-1]:
         finalStringList.append(str(v))
         finalStringList.append(',')
       finalStringList[-1] = '\n'
