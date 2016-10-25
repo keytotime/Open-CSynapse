@@ -46,18 +46,12 @@ def check_request_for_files(files, fail_status=400):
     if files_obj == [] or files_obj == None:
       raise HTTPResponse(status=fail_status, body=json.dumps({"status":"error",'error':'file param {} is required but not provided'.format(file), "error_type":"missing_param", "missing_param":file}))
 
+def re_space(param):
+  return param.replace("%20", " ")
+
 @get('/healthcheck')
 def healthCheck():
 	return HTTPResponse(status=200, body=json.dumps({"status":'ok'}))
-  
-@get('/mongotest')
-def mongotest():
-  check_request_for_params(["name"])
-  csynapseName = request.params.get('name')
-  obj = db.users.find_one({"_id":"dan"}, {"csynapses.{}.data_id".format(csynapseName):1})
-  data = obj["csynapses"]["{}".format(csynapseName)]["data_id"]
-  data = data[0]
-  return "object: {}".format(str(data._ObjectId__id))
 
 # Get list of available algorithms from db 
 @get('/algorithms')
@@ -87,7 +81,7 @@ def createCsynapse():
   # get username and csynapse
   userName = getUsername()
   check_request_for_params(["name"])
-  csynapseName = request.params.get('name')
+  csynapseName = re_space(request.params.get('name'))
   userCollection = db.users
 
   ret = ''
@@ -111,7 +105,7 @@ def saveData():
   userName = getUsername()
   check_request_for_params(["name"])
   check_request_for_files(["upload"])
-  csynapseName = request.params.get('name')
+  csynapseName = re_space(request.params.get('name'))
   if "zipped" in request.POST and (request.params.get("zipped") in ["true", "True", "TRUE"]):
     zipped = True
   else:
@@ -173,7 +167,7 @@ def saveData():
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):files_list[0]}})
     # queue up regression tasks
-    regression.delay(userName, csynapseName, dataId)
+    regression.delay(userName, csynapseName, datasetId)
     # queue up points task
     taskGetPoints.delay(userName, csynapseName, files_list[0])
   elif len(files_list) > 1 or zipped:
@@ -190,7 +184,7 @@ def saveData():
 def getData():
   check_request_for_params(["name"])
   userName = getUsername()
-  csynapseName = request.params.get('name')
+  csynapseName = re_space(request.params.get('name'))
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   if(doc is not None and 'csynapses' in doc):
@@ -212,7 +206,7 @@ def getData():
 def testAlgorithm():
   userName = getUsername()
   check_request_for_params(["name", "algorithm"])
-  csynapseName = request.params.get('name')
+  csynapseName = re_space(request.params.get('name'))
   algos = request.params.getall('algorithm')
   # Get dataId
   userCollection = db.users
@@ -233,7 +227,7 @@ def testAlgorithm():
 def getTestResults():
   userName = getUsername()
   check_request_for_params(["name"])
-  csynapseName = request.params.get('name')
+  csynapseName = re_space(request.params.get('name'))
 
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
@@ -259,8 +253,8 @@ def runAlgos():
   userName = getUsername()
   check_request_for_params(["name", "dataName", "algorithm"])
   check_request_for_files(["upload"])
-  csynapseName = request.params.get('name')
-  dataName = request.params.get('dataName')
+  csynapseName = re_space(request.params.get('name'))
+  dataName = re_space(request.params.get('dataName'))
   algo = request.params.get('algorithm')
   upload = request.files.get('upload')
 
@@ -341,8 +335,8 @@ def getClassified():
 def getRegressionData():
   userName = getUsername()
   check_request_for_params(['name'])
-  csynapseName = request.params.get('name')
-  pValue = request.params.get('p')
+  csynapseName = re_space(request.params.get('name'))
+  pValue = re_space(request.params.get('p'))
   # Get data Id
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
@@ -364,7 +358,7 @@ def getRegressionData():
 def getPoints():
   userName = getUsername()
   check_request_for_params(["name"])
-  csynapseName = request.params.get('name')
+  csynapseName = re_space(request.params.get('name'))
 
   # get dataset Id
   userCollection = db.users
@@ -389,8 +383,8 @@ def getPoints():
 @post('/login')
 def postLogin():
   check_request_for_params(["username", "password"], fail_status=401)
-  username = request.params.get('username')
-  password = request.params.get('password')
+  username = re_space(request.params.get('username'))
+  password = re_space(request.params.get('password'))
   session = getBeakerSession()
   if not 'logged_in' in session or session['logged_in'] == False:
     users = db.userAuth
@@ -415,8 +409,8 @@ def postLogin():
 @post('/register')
 def postRegister():
   check_request_for_params(["username", "password"], fail_status=401)
-  username = request.params.get('username')
-  password = request.params.get('password')
+  username = re_space(request.params.get('username'))
+  password = re_space(request.params.get('password'))
   usersAuth = db.userAuth
   if usersAuth.find_one({"username":username}) == None:
     salt = os.urandom(16)
