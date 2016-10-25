@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from bottle import *
-from tasks import runAlgoTest, classify, taskGetPoints, regression, process_photos
+from tasks import runAlgoTest, classify, taskGetPoints, regression, process_photos, classifyImages
 import json
 from database import db
 from beaker.middleware import SessionMiddleware
@@ -264,18 +264,46 @@ def runAlgos():
   algo = request.params.get('algorithm')
   upload = request.files.get('upload')
 
-  # save new data
   fs = db.files
-  newDatasetId = fs.put(upload.file)
-
   # get mongoId of old data
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   oldDataId = doc['csynapses'][csynapseName]['data_id']
   # get algo type
   algoType = doc['csynapses'][csynapseName]['algorithms'][algo]['algoId']
+  # save new data
+  if "zipped" in request.POST and (request.params.get("zipped") in ["true", "True", "TRUE"]):
+    unique_tmp_file = uuid.uuid4()
+    unique_tmp_folder = uuid.uuid4()
+    #http://stackoverflow.com/questions/15050064/how-to-upload-and-save-a-file-using-bottle-framework
+    save_path = "/tmp/{}".format(unique_tmp_file)
+    if not os.path.exists(save_path):
+      os.makedirs(save_path)
 
-  classify.delay(newDatasetId, oldDataId, algoType, userName, csynapseName, dataName)
+    file_path = "{path}/{file}".format(path=save_path, file=upload.filename)
+    upload.save(file_path)
+    tmp_path = "/tmp/{}".format(unique_tmp_folder)
+    zip_ref = zipfile.ZipFile(file_path, "r")
+    zip_ref.extractall(tmp_path)
+    zip_ref.close()
+    #http://stackoverflow.com/questions/3207219/how-to-list-all-files-of-a-directory-in-python
+    zipDir = [f for f in listdir(tmp_path) if isdir(join(tmp_path, f))][0]
+    # get list of file paths
+    zipDirPath = '{0}/{1}'.format(tmp_path,zipDir)
+    filepaths = [f for f in listdir(zipDirPath)]
+    filenamesAndIds = []
+    for x in filepaths:
+      filename = '{0}/{1}'.format(zipDirPath,x)
+      with open(filename,'r') as f:
+        dataId = fs.put(f)
+        filenamesAndIds.append((x,dataId))
+
+    # get list of data ids
+    classifyImages.delay(filenamesAndIds, oldDataId, algoType, userName, csynapseName, dataName)
+  else:
+    newDatasetId = fs.put(upload.file)
+    classify.delay(newDatasetId, oldDataId, algoType, userName, csynapseName, dataName)
+
   return HTTPResponse(status=200, body=json.dumps({"status":"ok"}))
 
 # Gets all available classified data

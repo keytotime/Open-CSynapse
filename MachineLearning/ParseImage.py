@@ -1,6 +1,7 @@
 from PIL import Image
 from sklearn.decomposition import PCA
 from Constants import Constants
+from collections import namedtuple
 # Returns list of resized black and white pixels comprising the image
 # @params filename:name of file
 # size:(xSize,ySize) to resize the image to
@@ -49,3 +50,54 @@ def vectorizeImages(labeledFiles):
 	# Compose string to save data in
 	data = [','.join(stringifyNums(x)) for x in labeledData]
 	return '\n'.join(data)
+
+def vectorizeForClassify(labeledFiles, unlabeledList):
+	allFiles = []
+	labels = []
+	for key, value in labeledFiles.iteritems():
+		allFiles.extend(value)
+		labels.append((key,len(value)))
+
+	for name, path in unlabeledList:
+		allFiles.append(path)
+
+	# Find min X and Y sizes
+	minX, minY = (float('inf'), float('inf'))
+	for x in allFiles:
+		x, y = Image.open(x).size
+		minX = min(minX, x)
+		minY = min(minY, y)
+	size = (minX, minY)
+	# Get pixel data according to minimum size
+	pixelData = [getPixels(x, size) for x in allFiles]
+	# Set number of components
+	components = Constants.PCA_COMPONENTS
+	if(len(pixelData[0]) < Constants.PCA_COMPONENTS):
+		components = len(pixelData[0])
+	# Init PCA algo
+	pca = PCA(n_components=components,copy=False)
+	# Perform PCA and return the results
+	transformed = pca.fit_transform(pixelData)
+	# Make list of training data and labels
+	labelsForTraining = []
+	trainingData = []
+	pos = 0
+	for x in labels:
+		for i in range(x[1]):
+			newList = list(transformed[i + pos])
+			trainingData.append(newList)
+			labelsForTraining.append(x[0])
+		pos += x[1]
+
+	# seperate into training data and data to be classified
+	toClassify = transformed[pos:]
+	toClassifyData = []
+	toClassifyLabels = []
+	for index, val in enumerate(unlabeledList):
+		filename = val[0]
+		toClassifyData.append(toClassify[index])
+		toClassifyLabels.append(filename)
+
+	ClassifyLabel = namedtuple('ClassifyLabel','data,names')
+	DataLabels = namedtuple('DataLabels','data,target')
+	return (DataLabels(trainingData,labelsForTraining), ClassifyLabel(toClassifyData, toClassifyLabels))

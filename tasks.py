@@ -7,7 +7,7 @@ from MachineLearning.CrossValidate import doShuffleCrossValidation
 from MachineLearning.GetDataPoints import getDataPoints
 from MachineLearning.ClassifyData import predict
 from MachineLearning.Regression import reg
-from MachineLearning.ParseImage import vectorizeImages
+from MachineLearning.ParseImage import vectorizeImages,vectorizeForClassify
 import MachineLearning.RunExternal as runEx
 from database import db
 from bson.objectid import ObjectId
@@ -55,7 +55,6 @@ def process_photos(userName, csynapseName):
       {'$set':{'csynapses.{0}.data_id'.format(csynapseName):dataId}})
  
   taskGetPoints(userName, csynapseName, dataId)
-
 
 @app.task
 def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
@@ -114,6 +113,48 @@ def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
   users.update_one({'_id':userName},\
     {'$set':{'csynapses.{0}.classified.{1}'.format(csynapseName,dataName):classifiedDataId}})
   return
+
+
+@app.task
+def classifyImages(dataIds, oldDataId, algorithm, userName, csynapseName, dataName):
+  fileNames = getMultiPartDataFiles(userName,csynapseName)
+  userCollection = db.users
+  doc = userCollection.find_one({'_id':userName})
+
+  labelMap = doc['csynapses'][csynapseName]['multipart_data_tagmap']
+
+  # make dictionary mapping labels to lists of filenames
+  mappedFiles = {}
+  for key, value in labelMap.iteritems():
+    mappedFiles[key] = [getDataFile(mongoId) for mongoId in value]
+
+  unlabeledFiles = []
+  for x in dataIds:
+    filename, dataId = x
+    unlabeledFiles.append((filename,getDataFile(dataId)))
+
+  trainingData, toClassify = vectorizeForClassify(mappedFiles, unlabeledFiles)
+  # Instantiate Classifier
+  alg = getDiscreetClassifier(algorithm)
+  # Train on data
+  alg.fit(trainingData.data, trainingData.target)
+
+  predictResult = predict(alg, toClassify.data)
+
+  classifiedData = []
+  # add file names back
+  for index, label in enumerate(toClassify.names):
+    classifiedData.append((predictResult[index][0], label))
+
+  commaStringList = [','.join(x) for x in classifiedData]
+  finalString = '\n'.join(commaStringList)
+
+  classifiedDataId = db.files.put(finalString.encode("UTF-8"))
+  # Save data Id to cynapse
+  users = db.users
+  users.update_one({'_id':userName},\
+    {'$set':{'csynapses.{0}.classified.{1}'.format(csynapseName,dataName):classifiedDataId}})
+
 
 @app.task
 def runAlgoTest(dataId, algorithm, userName, csynapseName):
