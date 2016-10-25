@@ -36,6 +36,7 @@ def getMultiPartDataFiles(userName, csynapseName):
 
 @app.task
 def process_photos(userName, csynapseName):
+  print('called process photos')
   fileNames = getMultiPartDataFiles(userName,csynapseName)
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})

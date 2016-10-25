@@ -133,6 +133,7 @@ def saveData():
   fs = db.files
   files_list = []
   tag_map = {}
+  datasetId = ''
   for upload in uploads:
     if zipped == False:
       datasetId = fs.put(upload.file.read().replace('\r\n','\n'))
@@ -169,11 +170,11 @@ def saveData():
           files_list.append(datasetId)
           tag_map[tag].append(datasetId)
   # store dataset name and mon
-  if len(files_list) == 1:
+  if zipped == False:
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):files_list[0]}})
     # queue up regression tasks
-    regression.delay(userName, csynapseName, dataId)
+    regression.delay(userName, csynapseName, datasetId)
     # queue up points task
     taskGetPoints.delay(userName, csynapseName, files_list[0])
   elif len(files_list) > 1 or zipped:
