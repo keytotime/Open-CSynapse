@@ -14,6 +14,7 @@ from bson.objectid import ObjectId
 import os
 import itertools
 from numpy import transpose
+from time import sleep
 
 app = Celery('tasks', broker='amqp://guest@queue//')
 mongoPort = 27017
@@ -54,6 +55,8 @@ def process_photos(userName, csynapseName):
   
   userCollection.update_one({'_id':userName},\
       {'$set':{'csynapses.{0}.data_id'.format(csynapseName):dataId}})
+  userCollection.update_one({'_id':userName},\
+      {'$set':{'csynapses.{0}.multipart_reduced'.format(csynapseName):1}})
  
   taskGetPoints(userName, csynapseName, dataId)
 
@@ -158,7 +161,33 @@ def classifyImages(dataIds, oldDataId, algorithm, userName, csynapseName, dataNa
 
 
 @app.task
-def runAlgoTest(dataId, algorithm, userName, csynapseName):
+def runAlgoTest(algorithm, userName, csynapseName):
+  
+  userCollection = db.users
+  doc = userCollection.find_one({'_id':userName})
+  #the following is ATROCIOUS code, but should work for now.
+  #need better reporting tools to do better
+  if "data_id" not in (doc['csynapses'][csynapseName]).keys() and "multipart_data" not in (doc['csynapses'][csynapseName]).keys():
+    raise DataException("Data Not Available")
+  found = False
+  if "data_id" in (doc['csynapses'][csynapseName]).keys():
+    found = True
+  cycles_to_wait = 20
+  cycles = 0
+  if not found:
+    while not found:
+      doc = userCollection.find_one({'_id':userName})
+      if ("multipart_data" in (doc['csynapses'][csynapseName]).keys() and "multipart_reduced" in (doc['csynapses'][csynapseName]).keys()):
+        found = True
+      else:
+        cycles = cycles + 1
+      if cycles == cycles_to_wait:
+        raise WaitException("Took Too Long to Generate Data")
+      sleep(1)
+    sleep(3)
+    
+  dataId = doc['csynapses'][csynapseName]['data_id']
+  
   ret = {}
   # special case for homegrown algos
   if(algorithm in ['adaline', 'hebbian', 'multiLayerPerceptronSig', 'multiLayerPerceptronTan']):
@@ -244,4 +273,23 @@ def regression(userName, csynapseName, mongoId):
   userCollection = db.users
   userCollection.update_one({'_id':userName},\
     {'$set':{'csynapses.{0}.regression'.format(csynapseName):regressionId}})
-  
+
+class WaitException(Exception):
+    """Exception raised for errors in the input.
+
+    Attributes:
+        message -- explanation of the error
+    """
+
+    def __init__(self, message):
+        self.message = message
+
+class DataException(Exception):
+    """Exception raised for errors in the input.
+
+    Attributes:
+        message -- explanation of the error
+    """
+
+    def __init__(self, message):
+        self.message = message
