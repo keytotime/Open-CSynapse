@@ -211,13 +211,10 @@ def testAlgorithm():
   algos = request.params.getall('algorithm')
   # Get dataId
   userCollection = db.users
-
-  doc = userCollection.find_one({'_id':userName})
-  dataId = doc['csynapses'][csynapseName]['data_id']
-
+  
   # pass dataId and algorithms to task
   for algo in algos:
-    runAlgoTest.delay(dataId, algo, userName, csynapseName)
+    runAlgoTest.delay(algo, userName, csynapseName)
   # return 200
   return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"submitted for testing", "csynapse":csynapseName, "algorithms":algos}))
 
