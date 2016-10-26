@@ -47,7 +47,8 @@ def check_request_for_files(files, fail_status=400):
       raise HTTPResponse(status=fail_status, body=json.dumps({"status":"error",'error':'file param {} is required but not provided'.format(file), "error_type":"missing_param", "missing_param":file}))
 
 def re_space(param):
-  return param.replace("%20", " ")
+  if param is not None:
+    return param.replace("%20", " ")
 
 @get('/healthcheck')
 def healthCheck():
@@ -345,8 +346,10 @@ def getRegressionData():
     dataId = doc['csynapses'][csynapseName]['regression']
     regData = json.loads(db.files.get(ObjectId(dataId)).read())
     if(pValue is not None):
-      regData = [x for x in regData if(x['p'] <= float(pValue))]
+      regData = [x for x in regData if(x['p'] <= float(pValue) and x['r'] > .8)]
     regData.sort(key=lambda obj:obj['rSquared'], reverse=True)
+    if len(regData) > 10:
+      regData = regData[:10]
     return json.dumps({'status':'ok', 'regressionData':regData})
   except Exception as e:
     raise e

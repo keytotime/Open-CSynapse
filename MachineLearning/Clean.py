@@ -82,6 +82,7 @@ def regressionData(filename):
 		# skip first row of headers
 		reader.next()
 		for line in reader:
+			print(line)
 			casted = [float(value[1]) for value in enumerate(line) if(value[0] not in nonFloatIndexes)]
 			data.append(casted)
 
