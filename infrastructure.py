@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from bottle import *
+from MachineLearning.BuildClassifier import getDiscreetClassifier
 from tasks import runAlgoTest, classify, taskGetPoints, regression, process_photos, classifyImages
 import json
 from database import db
@@ -60,7 +61,7 @@ def getAlgorithms():
   algoCollection = db.algorithms
   algos = algoCollection.find_one({'_id':'algorithms'})
   algorithms = [{'algoId':x,'description':algos[x][u'description'], \
-    'name':algos[x][u'name'],'type':algos[x][u'type']} for x in algos if(x != u'_id')]
+    'name':algos[x][u'name'],'type':algos[x][u'type'], 'paramInfo':algos[x][u'paramInfo']} for x in algos if(x != u'_id')]
   return HTTPResponse(status=200, body=json.dumps({"status":"ok", "algorithms":algorithms}))
 
 # Get list of all csynapses owned by a user
@@ -210,14 +211,33 @@ def testAlgorithm():
   check_request_for_params(["name", "algorithm"])
   csynapseName = re_space(request.params.get('name'))
   algos = request.params.getall('algorithm')
-  # Get dataId
-  userCollection = db.users
-  
-  # pass dataId and algorithms to task
-  for algo in algos:
-    runAlgoTest.delay(algo, userName, csynapseName)
-  # return 200
-  return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"submitted for testing", "csynapse":csynapseName, "algorithms":algos}))
+  failedAlgos = []
+  successAlgos = []
+  for j in algos:
+    # Try and load the algorithm and return errors with information about the algorithms that failed
+    algoData = ''
+    try:
+      algoData = json.loads(j)
+      successAlgos.append(algoData)
+    except Exception as e:
+      failedAlgos.append({'error':'json data {0} is invalid'.format(j),\
+      "error_type":"invalid_json", "exception_message":str(e)})
+      continue
+    try:
+      if('params' in algoData):
+        getDiscreetClassifier(algoData['algorithm'], algoData['params'])
+      else:
+        getDiscreetClassifier(algoData['algorithm'])
+    except Exception as e:
+      failedAlgos.append({'error':'algo params {0} is invalid'.format(j),\
+      "error_type":"invalid_params", "exception_message":str(e)})
+    runAlgoTest.delay(algoData, userName, csynapseName)
+    
+  if(len(failedAlgos) > 0):
+    raise HTTPResponse(status=500, body=json.dumps({"status":"error",'failedAlgorithms':failedAlgos,\
+      "error_type":"failedAlgorithms"}))
+  else:
+    return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"submitted for testing", "csynapse":csynapseName, "algorithms":successAlgos}))
 
 # Gets the test results for all the algos run on the given csynapse
 # @params (body or query) user=userName, name=csynapseName
@@ -264,6 +284,7 @@ def runAlgos():
   oldDataId = doc['csynapses'][csynapseName]['data_id']
   # get algo type
   algoType = doc['csynapses'][csynapseName]['algorithms'][algo]['algoId']
+  params = doc['csynapses'][csynapseName]['algorithms'][algo]['params']
   # save new data
   if "zipped" in request.POST and (request.params.get("zipped") in ["true", "True", "TRUE"]):
     unique_tmp_file = uuid.uuid4()
@@ -292,10 +313,10 @@ def runAlgos():
         filenamesAndIds.append((x,dataId))
 
     # get list of data ids
-    classifyImages.delay(filenamesAndIds, oldDataId, algoType, userName, csynapseName, dataName)
+    classifyImages.delay(filenamesAndIds, oldDataId, algoType, params, userName, csynapseName, dataName)
   else:
     newDatasetId = fs.put(upload.file)
-    classify.delay(newDatasetId, oldDataId, algoType, userName, csynapseName, dataName)
+    classify.delay(newDatasetId, oldDataId, algoType, params, userName, csynapseName, dataName)
 
   return HTTPResponse(status=200, body=json.dumps({"status":"ok"}))
 

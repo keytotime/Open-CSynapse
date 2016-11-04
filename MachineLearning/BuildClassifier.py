@@ -16,27 +16,27 @@ from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
 # Params: name - name of classifier to return
 # numberOfLabels - number of unique labels in data
 # Return: classifier or exception
-def getDiscreetClassifier(name):
+def getDiscreetClassifier(name, params={}):
 	if(name == 'svm'):
-		return SVC()
+		return SVC(**params)
 	elif(name == 'knearest'):
-		return KNeighborsClassifier()
+		return KNeighborsClassifier(**params)
 	elif(name == 'guassNB'):
 		return GaussianNB()
 	elif(name == 'sgd'):
-		return SGDClassifier()
+		return SGDClassifier(**params)
 	elif(name == 'adaBoost'):
-		return AdaBoostClassifier(n_estimators=100)
+		return AdaBoostClassifier(**params)
 	elif(name == 'randomForest'):
-		return AdaBoostClassifier(n_estimators=20)
+		return RandomForestClassifier(**params)
 	elif(name == 'perceptron'):
-		return Perceptron(n_iter=50)
+		return Perceptron(**params)
 	elif(name == 'nearestCentroid'):
-		return NearestCentroid()
+		return NearestCentroid(**params)
 	elif(name == 'passiveAggressive'):
-		return PassiveAggressiveClassifier()
+		return PassiveAggressiveClassifier(**params)
 	elif(name == 'decisionTree'):
-		return DecisionTreeClassifier()
+		return DecisionTreeClassifier(**params)
 	elif(name == 'leastSquares'):
 		return LinearRegression()
 	elif(name == 'ridge'):

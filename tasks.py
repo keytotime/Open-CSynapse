@@ -37,7 +37,6 @@ def getMultiPartDataFiles(userName, csynapseName):
 
 @app.task
 def process_photos(userName, csynapseName):
-  print('called process photos')
   fileNames = getMultiPartDataFiles(userName,csynapseName)
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
@@ -61,7 +60,7 @@ def process_photos(userName, csynapseName):
   taskGetPoints(userName, csynapseName, dataId)
 
 @app.task
-def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
+def classify(newDataId, oldDataId, algorithm, params, userName, csynapseName, dataName):
   result = None
   finalString = ''
   # special case for homegrown algorithms
@@ -85,8 +84,10 @@ def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
   else:
     # Get old data 
     oldData = cleanData(getDataFile(oldDataId))
+
+    # Get params of algorithm 
     # Instantiate Classifier
-    alg = getDiscreetClassifier(algorithm)
+    alg = getDiscreetClassifier(algorithm, params)
     # Train on data
     alg.fit(oldData.data, oldData.target)
 
@@ -120,7 +121,7 @@ def classify(newDataId, oldDataId, algorithm, userName, csynapseName, dataName):
 
 
 @app.task
-def classifyImages(dataIds, oldDataId, algorithm, userName, csynapseName, dataName):
+def classifyImages(dataIds, oldDataId, algorithm, params, userName, csynapseName, dataName):
   fileNames = getMultiPartDataFiles(userName,csynapseName)
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
@@ -139,7 +140,7 @@ def classifyImages(dataIds, oldDataId, algorithm, userName, csynapseName, dataNa
 
   trainingData, toClassify = vectorizeForClassify(mappedFiles, unlabeledFiles)
   # Instantiate Classifier
-  alg = getDiscreetClassifier(algorithm)
+  alg = getDiscreetClassifier(algorithm, params)
   # Train on data
   alg.fit(trainingData.data, trainingData.target)
 
@@ -161,8 +162,13 @@ def classifyImages(dataIds, oldDataId, algorithm, userName, csynapseName, dataNa
 
 
 @app.task
-def runAlgoTest(algorithm, userName, csynapseName):
+def runAlgoTest(algoData, userName, csynapseName):
   
+  algorithm = algoData['algorithm']
+  params = {}
+  if('params' in algoData):
+    params = algoData['params']
+
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
   #the following is ATROCIOUS code, but should work for now.
@@ -204,7 +210,7 @@ def runAlgoTest(algorithm, userName, csynapseName):
       ret['time'] = float(time) / 1000
   else:
     # Instantiate Classifier
-    alg = getDiscreetClassifier(algorithm)
+    alg = getDiscreetClassifier(algorithm, params)
     # Get data from file
     data = cleanData(getDataFile(dataId))
     # Run Cross Validation
@@ -217,7 +223,7 @@ def runAlgoTest(algorithm, userName, csynapseName):
   userCollection = db.users
   userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
-    'time':ret['time'], 'algoId':algorithm}}})
+    'time':ret['time'], 'algoId':algorithm, 'params':params}}})
   return
 
 @app.task
