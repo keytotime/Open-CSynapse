@@ -311,7 +311,7 @@ def runAlgos():
         filenamesAndIds.append((x,dataId))
 
     # get list of data ids
-    classifyImages(filenamesAndIds, oldDataId, algoType, params, userName, csynapseName, dataName)
+    classifyImages.delay(filenamesAndIds, oldDataId, algoType, params, userName, csynapseName, dataName)
   else:
     newDatasetId = fs.put(upload.file)
     classify.delay(newDatasetId, oldDataId, algoType, params, userName, csynapseName, dataName)
