@@ -226,8 +226,6 @@ def testAlgorithm():
     try:
       if('params' in algoData):
         getDiscreetClassifier(algoData['algorithm'], algoData['params'])
-      else:
-        getDiscreetClassifier(algoData['algorithm'])
     except Exception as e:
       failedAlgos.append({'error':'algo params {0} is invalid'.format(j),\
       "error_type":"invalid_params", "exception_message":str(e)})
@@ -313,7 +311,7 @@ def runAlgos():
         filenamesAndIds.append((x,dataId))
 
     # get list of data ids
-    classifyImages.delay(filenamesAndIds, oldDataId, algoType, params, userName, csynapseName, dataName)
+    classifyImages(filenamesAndIds, oldDataId, algoType, params, userName, csynapseName, dataName)
   else:
     newDatasetId = fs.put(upload.file)
     classify.delay(newDatasetId, oldDataId, algoType, params, userName, csynapseName, dataName)

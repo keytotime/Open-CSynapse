@@ -15,6 +15,7 @@ import os
 import itertools
 from numpy import transpose
 from time import sleep
+import uuid
 
 app = Celery('tasks', broker='amqp://guest@queue//')
 mongoPort = 27017
@@ -138,21 +139,42 @@ def classifyImages(dataIds, oldDataId, algorithm, params, userName, csynapseName
     filename, dataId = x
     unlabeledFiles.append((filename,getDataFile(dataId)))
 
-  trainingData, toClassify = vectorizeForClassify(mappedFiles, unlabeledFiles)
-  # Instantiate Classifier
-  alg = getDiscreetClassifier(algorithm, params)
-  # Train on data
-  alg.fit(trainingData.data, trainingData.target)
+  finalString = ''
 
-  predictResult = predict(alg, toClassify.data)
+  # special case for homegrown algorithms
+  if(algorithm in ['adaline', 'hebbian', 'multiLayerPerceptronSig', 'multiLayerPerceptronTan']):
+    # Get file paths for old and new data
+    unique = str(uuid.uuid4())
+    trainingPath = 'train' + unique
+    newDataPath = 'classify' + unique
+    resultsPath = 'results' + unique
 
-  classifiedData = []
-  # add file names back
-  for index, label in enumerate(toClassify.names):
-    classifiedData.append((predictResult[index][0], label))
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    imageNames = vectorizeForClassify(mappedFiles, unlabeledFiles, trainingPath, newDataPath)
+    
+    runEx.execute('java -jar {4}/externalExecutables/{0}.jar {1} {2} {3}'.format(algorithm,trainingPath,newDataPath,resultsPath,script_dir))
 
-  commaStringList = [','.join(x) for x in classifiedData]
-  finalString = '\n'.join(commaStringList)
+    stringBuilder = []
+    with open(resultsPath, 'r') as f:
+      for i, line in enumerate(f):
+        stringBuilder.append(line.split(',')[0] + ',' + imageNames[i])
+    finalString = '\n'.join(stringBuilder)
+  else:
+    trainingData, toClassify = vectorizeForClassify(mappedFiles, unlabeledFiles)
+    # Instantiate Classifier
+    alg = getDiscreetClassifier(algorithm, params)
+    # Train on data
+    alg.fit(trainingData.data, trainingData.target)
+
+    predictResult = predict(alg, toClassify.data)
+
+    classifiedData = []
+    # add file names back
+    for index, label in enumerate(toClassify.names):
+      classifiedData.append((predictResult[index][0], label))
+
+    commaStringList = [','.join(x) for x in classifiedData]
+    finalString = '\n'.join(commaStringList)
 
   classifiedDataId = db.files.put(finalString.encode("UTF-8"))
   # Save data Id to cynapse

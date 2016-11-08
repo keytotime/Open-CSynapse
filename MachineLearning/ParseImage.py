@@ -51,7 +51,7 @@ def vectorizeImages(labeledFiles):
 	data = [','.join(stringifyNums(x)) for x in labeledData]
 	return '\n'.join(data)
 
-def vectorizeForClassify(labeledFiles, unlabeledList):
+def vectorizeForClassify(labeledFiles, unlabeledList, trainingPath=None, classifyingPath=None):
 	allFiles = []
 	labels = []
 	for key, value in labeledFiles.iteritems():
@@ -97,7 +97,34 @@ def vectorizeForClassify(labeledFiles, unlabeledList):
 		filename = val[0]
 		toClassifyData.append(toClassify[index])
 		toClassifyLabels.append(filename)
+	# if filename is given, write training data and data to classify into files
+	if(trainingPath!= None and classifyingPath != None):
+		with open(trainingPath, 'w') as f:
+			toWrite = []
+			for i, x in enumerate(labelsForTraining):
+				newList = []
+				newList.append(x)
+				for c in trainingData[i]:
+					newList.append(str(c))
+				toWrite.append(newList)
 
-	ClassifyLabel = namedtuple('ClassifyLabel','data,names')
-	DataLabels = namedtuple('DataLabels','data,target')
-	return (DataLabels(trainingData,labelsForTraining), ClassifyLabel(toClassifyData, toClassifyLabels))
+			lines = [','.join(x) for x in toWrite]
+			final = '\n'.join(lines)
+			f.write(final)
+		with open(classifyingPath, 'w') as f:
+			toWrite = []
+			for x in toClassifyData:
+				newList = []
+				for c in x:
+					newList.append(str(c))
+				toWrite.append(newList)
+
+			lines = [','.join(x) for x in toWrite]
+			final = '\n'.join(lines)
+			f.write(final)
+
+		return toClassifyLabels
+	else:
+		ClassifyLabel = namedtuple('ClassifyLabel','data,names')
+		DataLabels = namedtuple('DataLabels','data,target')
+		return (DataLabels(trainingData,labelsForTraining), ClassifyLabel(toClassifyData, toClassifyLabels))
