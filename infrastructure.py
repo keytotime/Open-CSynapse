@@ -137,27 +137,28 @@ def saveData():
     else:
       unique_tmp_file = uuid.uuid4()
       unique_tmp_folder = uuid.uuid4()
+      unique_extract_folder = uuid.uuid4()
       #http://stackoverflow.com/questions/15050064/how-to-upload-and-save-a-file-using-bottle-framework
-      save_path = "/tmp/{}".format(unique_tmp_file)
+      save_path = "/tmp/{}".format(unique_tmp_folder)
       if not os.path.exists(save_path):
         os.makedirs(save_path)
-
-      file_path = "{path}/{file}".format(path=save_path, file=upload.filename)
+      file_path = "{path}/{file}.zip".format(path=save_path, file=unique_tmp_file)#upload.filename)
+      print "File Path: {}".format(file_path)
       upload.save(file_path)
-      tmp_path = "/tmp/{}".format(unique_tmp_folder)
+      extract_path = "/tmp/{}".format(unique_extract_folder)
       zip_ref = zipfile.ZipFile(file_path, "r")
-      zip_ref.extractall(tmp_path)
+      zip_ref.extractall(extract_path)
       zip_ref.close()
       #http://stackoverflow.com/questions/3207219/how-to-list-all-files-of-a-directory-in-python
-      tags = [f for f in listdir(tmp_path) if isdir(join(tmp_path, f))]
+      tags = [f for f in listdir(extract_path) if isdir(join(extract_path, f))]
       if "__MACOSX" in tags:
         tags.remove("__MACOSX")
       if len(tags) == 1:
-        tmp_path = tmp_path+"/"+tags[0]
-        tags = [f for f in listdir(tmp_path) if isdir(join(tmp_path, f))]
+        extract_path = extract_path+"/"+tags[0]
+        tags = [f for f in listdir(extract_path) if isdir(join(extract_path, f))]
       for tag in tags:
         tag_map[tag] = []
-        tag_folder = "{}/{}".format(tmp_path, tag)
+        tag_folder = "{}/{}".format(extract_path, tag)
         unzipped_files = [f for f in listdir(tag_folder) if isfile(join(tag_folder, f))]
         for ufile in unzipped_files:
           f = open("{}/{}".format(tag_folder, ufile), "r")
@@ -291,7 +292,7 @@ def runAlgos():
     save_path = "/tmp/{}".format(unique_tmp_file)
     if not os.path.exists(save_path):
       os.makedirs(save_path)
-
+    
     file_path = "{path}/{file}".format(path=save_path, file=upload.filename)
     upload.save(file_path)
     tmp_path = "/tmp/{}".format(unique_tmp_folder)
