@@ -2,7 +2,7 @@
 from celery import Celery
 import json
 from MachineLearning.BuildClassifier import getDiscreetClassifier
-from MachineLearning.Clean import cleanData, cleanUntagged, getHeaders, regressionData
+from MachineLearning.Clean import cleanData, cleanUntagged, getHeaders, regressionData, getHeaderPoints
 from MachineLearning.CrossValidate import doShuffleCrossValidation
 from MachineLearning.GetDataPoints import getDataPoints
 from MachineLearning.ClassifyData import predict
@@ -253,6 +253,7 @@ def taskGetPoints(userName, csynapseName, mongoId):
   ret = {}
   # get Data points
   data = cleanData(getDataFile(mongoId))
+
   # find dimensionality of data
   d = len(data.data[0])
   dimensions = None
@@ -270,6 +271,15 @@ def taskGetPoints(userName, csynapseName, mongoId):
     userCollection = db.users
     userCollection.update_one({'_id':userName},\
       {'$set':{'csynapses.{0}.points.{1}'.format(csynapseName,x):pointsId}})
+
+@app.task
+def taskGetRegressionPoints(userName, csynapseName, mongoId):
+  dataFile = getDataFile(mongoId)
+  # Get arrays of values for each header
+  headerPoints = getHeaderPoints(dataFile)
+  userCollection = db.users
+  userCollection.update_one({'_id':userName},\
+      {'$set':{'csynapses.{0}.headerPoints'.format(csynapseName):headerPoints}})
 
 @app.task
 def regression(userName, csynapseName, mongoId):

@@ -2,7 +2,7 @@
 
 from bottle import *
 from MachineLearning.BuildClassifier import getDiscreetClassifier
-from tasks import runAlgoTest, classify, taskGetPoints, regression, process_photos, classifyImages
+from tasks import runAlgoTest, classify, taskGetPoints, regression, process_photos, classifyImages, taskGetRegressionPoints
 import json
 from database import db
 from beaker.middleware import SessionMiddleware
@@ -172,8 +172,11 @@ def saveData():
     {'$set':{'csynapses.{0}.data_id'.format(csynapseName):files_list[0]}})
     # queue up regression tasks
     regression.delay(userName, csynapseName, datasetId)
+    # queue up regression points task
+    taskGetRegressionPoints.delay(userName, csynapseName, files_list[0])
     # queue up points task
     taskGetPoints.delay(userName, csynapseName, files_list[0])
+    
   elif len(files_list) > 1 or zipped:
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.multipart_data'.format(csynapseName):files_list}})
@@ -365,12 +368,9 @@ def getRegressionData():
     if(pValue is not None):
       regData = [x for x in regData if(x['p'] <= float(pValue) and x['r'] > .8)]
     regData.sort(key=lambda obj:obj['rSquared'], reverse=True)
-    if len(regData) > 10:
-      regData = regData[:10]
     return json.dumps({'status':'ok', 'regressionData':regData})
   except Exception as e:
-    raise e
-    return HTTPResponse(status=500, body=json.dumps({"status":"error getting regression data"}))
+    return HTTPResponse(status=500, body=json.dumps({"status":"error","message":"no regression data available"}))
 
 # Returns the datapoints if they have already been calc'd and saved
 # @params name=csynapseName
@@ -387,15 +387,20 @@ def getPoints():
 
   # see if data points already exist
   if('points' in doc['csynapses'][csynapseName].keys()):
+    final = {}
     ids = doc['csynapses'][csynapseName]['points']
     ret = {}
+    final['status'] = 'ok'
     for key, val in ids.items():
       theData = json.loads(db.files.get(ObjectId(val)).read())
       ret[key] = theData
-    return HTTPResponse(status=200, body=json.dumps({"status":"ok","points":ret}))
-  else: # process the dataset and save the points
-    mongoId = str(doc['csynapses'][csynapseName]['data_id'])
-    taskGetPoints.delay(userName, csynapseName, mongoId)
+    final['points'] = ret
+    if('headerPoints' in doc['csynapses'][csynapseName].keys()):
+      headerInfo = doc['csynapses'][csynapseName]['headerPoints']
+      final['headerPoints'] = headerInfo['headerPoints']
+      final['labels'] = headerInfo['labels']
+    return HTTPResponse(status=200, body=json.dumps(final))
+  else: # inform the user the points are being generated
     return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"points are being generated"}))
 
 # Logs in the user, returning a session cookie with the relevant information
