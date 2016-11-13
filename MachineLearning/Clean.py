@@ -1,6 +1,6 @@
 # Sam Callister April 18, 2016
 # Used to Prepare data for ML algorithms
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import csv
 # returns (data, labels)
 def cleanData(fileName):
@@ -99,3 +99,23 @@ def getHeaders(filename):
 			return possibleHeader
 		else:
 			return ''
+
+# Returns [{header:headerName,values:[1,2,4]}...]
+def getHeaderPoints(filename):
+	with open(filename, 'r') as f:
+		labels = []
+		reader = csv.reader(f, skipinitialspace=True)
+		headers = reader.next()[1:]
+		values = defaultdict(list)
+		for line in reader:
+			labels.append(line[0])
+			for index,x in enumerate(line[1:]):
+				values[index].append(float(x))
+		final = []
+		for index, x in enumerate(headers):
+			toAdd = {}
+			toAdd['header'] = x
+			toAdd['values'] = values[index]
+			final.append(toAdd)
+
+		return {'labels':labels,'headerPoints':final}
