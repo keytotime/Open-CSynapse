@@ -186,6 +186,12 @@ def classifyImages(dataIds, oldDataId, algorithm, params, userName, csynapseName
 @app.task
 def runAlgoTest(algoData, userName, csynapseName):
   
+  newObjectId = str(ObjectId())
+  userCollection = db.users
+  userCollection.update_one({'_id':userName}, \
+    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"processing"}}})
+  
+  
   algorithm = algoData['algorithm']
   params = {}
   if('params' in algoData):
@@ -197,6 +203,8 @@ def runAlgoTest(algoData, userName, csynapseName):
   #need better reporting tools to do better
   if "data_id" not in (doc['csynapses'][csynapseName]).keys() and "multipart_data" not in (doc['csynapses'][csynapseName]).keys():
     raise DataException("Data Not Available")
+    userCollection.update_one({'_id':userName}, \
+    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error"}}})
   found = False
   if "data_id" in (doc['csynapses'][csynapseName]).keys():
     found = True
@@ -211,6 +219,8 @@ def runAlgoTest(algoData, userName, csynapseName):
         cycles = cycles + 1
       if cycles == cycles_to_wait:
         raise WaitException("Took Too Long to Generate Data")
+        userCollection.update_one({'_id':userName}, \
+        {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error"}}})
       sleep(1)
     sleep(3)
     
@@ -240,12 +250,12 @@ def runAlgoTest(algoData, userName, csynapseName):
     ret['score'] = meanScoreTime.meanScore
     ret['time'] = meanScoreTime.timeTaken
 
-  newObjectId = str(ObjectId())
+  
   # save result in db
-  userCollection = db.users
+  
   userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
-    'time':ret['time'], 'algoId':algorithm, 'params':params}}})
+    'time':ret['time'], 'algoId':algorithm, 'params':params, 'status':"complete"}}})
   return
 
 @app.task
