@@ -14,7 +14,7 @@ from bson.objectid import ObjectId
 import os
 import itertools
 from numpy import transpose
-from time import sleep
+from time import sleep, gmtime, strftime
 import uuid
 
 app = Celery('tasks', broker='amqp://guest@queue//')
@@ -188,23 +188,25 @@ def runAlgoTest(algoData, userName, csynapseName):
   
   newObjectId = str(ObjectId())
   userCollection = db.users
-  userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"processing"}}})
-  
   
   algorithm = algoData['algorithm']
   params = {}
   if('params' in algoData):
     params = algoData['params']
 
-  userCollection = db.users
+  # userCollection = db.users
+  set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+  userCollection.update_one({'_id':userName}, \
+    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'algoId':algorithm, 'params':params, 'status':"processing", "last_updated":set_time}}})
+  
   doc = userCollection.find_one({'_id':userName})
   #the following is ATROCIOUS code, but should work for now.
   #need better reporting tools to do better
   if "data_id" not in (doc['csynapses'][csynapseName]).keys() and "multipart_data" not in (doc['csynapses'][csynapseName]).keys():
     raise DataException("Data Not Available")
+    set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
     userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error"}}})
+    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
   found = False
   if "data_id" in (doc['csynapses'][csynapseName]).keys():
     found = True
@@ -219,8 +221,9 @@ def runAlgoTest(algoData, userName, csynapseName):
         cycles = cycles + 1
       if cycles == cycles_to_wait:
         raise WaitException("Took Too Long to Generate Data")
+        set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
         userCollection.update_one({'_id':userName}, \
-        {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error"}}})
+        {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
       sleep(1)
     sleep(3)
     
@@ -252,10 +255,10 @@ def runAlgoTest(algoData, userName, csynapseName):
 
   
   # save result in db
-  
+  set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
   userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
-    'time':ret['time'], 'algoId':algorithm, 'params':params, 'status':"complete"}}})
+    'time':ret['time'], 'algoId':algorithm, 'params':params, 'status':"complete", "last_updated":set_time}}})
   return
 
 @app.task
