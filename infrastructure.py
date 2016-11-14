@@ -232,6 +232,13 @@ def testAlgorithm():
       continue
     try:
       if('params' in algoData):
+        paramsData = algoData['params']
+        for key, val in paramsData.iteritems():
+          try:
+            print(val)
+            paramsData[key] = float(val)
+          except Exception:
+            continue
         getDiscreetClassifier(algoData['algorithm'], algoData['params'])
     except Exception as e:
       failedAlgos.append({'error':'algo params {0} is invalid'.format(j),\
