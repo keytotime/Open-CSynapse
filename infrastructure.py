@@ -135,37 +135,40 @@ def saveData():
       datasetId = fs.put(upload.file.read().replace('\r\n','\n'))
       files_list.append(datasetId)
     else:
-      unique_tmp_file = uuid.uuid4()
-      unique_tmp_folder = uuid.uuid4()
-      unique_extract_folder = uuid.uuid4()
-      #http://stackoverflow.com/questions/15050064/how-to-upload-and-save-a-file-using-bottle-framework
-      save_path = "/tmp/{}".format(unique_tmp_folder)
-      if not os.path.exists(save_path):
-        os.makedirs(save_path)
-      file_path = "{path}/{file}.zip".format(path=save_path, file=unique_tmp_file)#upload.filename)
-      print "File Path: {}".format(file_path)
-      upload.save(file_path)
-      extract_path = "/tmp/{}".format(unique_extract_folder)
-      zip_ref = zipfile.ZipFile(file_path, "r")
-      zip_ref.extractall(extract_path)
-      zip_ref.close()
-      #http://stackoverflow.com/questions/3207219/how-to-list-all-files-of-a-directory-in-python
-      tags = [f for f in listdir(extract_path) if isdir(join(extract_path, f))]
-      if "__MACOSX" in tags:
-        tags.remove("__MACOSX")
-      if len(tags) == 1:
-        extract_path = extract_path+"/"+tags[0]
+      try:
+        unique_tmp_file = uuid.uuid4()
+        unique_tmp_folder = uuid.uuid4()
+        unique_extract_folder = uuid.uuid4()
+        #http://stackoverflow.com/questions/15050064/how-to-upload-and-save-a-file-using-bottle-framework
+        save_path = "/tmp/{}".format(unique_tmp_folder)
+        if not os.path.exists(save_path):
+          os.makedirs(save_path)
+        file_path = "{path}/{file}.zip".format(path=save_path, file=unique_tmp_file)#upload.filename)
+        print "File Path: {}".format(file_path)
+        upload.save(file_path)
+        extract_path = "/tmp/{}".format(unique_extract_folder)
+        zip_ref = zipfile.ZipFile(file_path, "r")
+        zip_ref.extractall(extract_path)
+        zip_ref.close()
+        #http://stackoverflow.com/questions/3207219/how-to-list-all-files-of-a-directory-in-python
         tags = [f for f in listdir(extract_path) if isdir(join(extract_path, f))]
-      for tag in tags:
-        tag_map[tag] = []
-        tag_folder = "{}/{}".format(extract_path, tag)
-        unzipped_files = [f for f in listdir(tag_folder) if isfile(join(tag_folder, f))]
-        for ufile in unzipped_files:
-          f = open("{}/{}".format(tag_folder, ufile), "r")
-          datasetId = fs.put(f)
-          f.close()
-          files_list.append(datasetId)
-          tag_map[tag].append(datasetId)
+        if "__MACOSX" in tags:
+          tags.remove("__MACOSX")
+        if len(tags) == 1:
+          extract_path = extract_path+"/"+tags[0]
+          tags = [f for f in listdir(extract_path) if isdir(join(extract_path, f))]
+        for tag in tags:
+          tag_map[tag] = []
+          tag_folder = "{}/{}".format(extract_path, tag)
+          unzipped_files = [f for f in listdir(tag_folder) if isfile(join(tag_folder, f))]
+          for ufile in unzipped_files:
+            f = open("{}/{}".format(tag_folder, ufile), "r")
+            datasetId = fs.put(f)
+            f.close()
+            files_list.append(datasetId)
+            tag_map[tag].append(datasetId)
+      except (zipfile.BadZipFile, zipfile.LargeZipFile), e:
+        return HTTPResponse(status=422, body=json.dumps({"status":"error", "error":"zip file is not valid"}))
   # store dataset name and mon
   if zipped == False:
     userCollection.update_one({'_id':userName}, \
@@ -185,7 +188,7 @@ def saveData():
     
     process_photos.delay(userName, csynapseName)
 
-  return HTTPResponse(status=200, body=json.dumps({"message":"data added successfully"}))
+  return HTTPResponse(status=200, body=json.dumps({"status":"ok", "message":"data added successfully"}))
 
 @get('/getData')
 def getData():
