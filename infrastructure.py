@@ -361,6 +361,7 @@ def getRegressionData():
   userName = getUsername()
   check_request_for_params(['name'])
   csynapseName = re_space(request.params.get('name'))
+  limit = request.params.get('limit')
   pValue = re_space(request.params.get('p'))
   # Get data Id
   userCollection = db.users
@@ -371,6 +372,8 @@ def getRegressionData():
     if(pValue is not None):
       regData = [x for x in regData if(x['p'] <= float(pValue) and x['r'] > .8)]
     regData.sort(key=lambda obj:obj['rSquared'], reverse=True)
+    if(limit is not None):
+      regData = regData[:int(limit)]
     return json.dumps({'status':'ok', 'regressionData':regData})
   except Exception as e:
     return HTTPResponse(status=500, body=json.dumps({"status":"error","message":"no regression data available"}))
