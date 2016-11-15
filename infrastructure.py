@@ -235,8 +235,10 @@ def testAlgorithm():
         paramsData = algoData['params']
         for key, val in paramsData.iteritems():
           try:
-            print(val)
-            paramsData[key] = float(val)
+            if(key == u'n_estimators'):
+              paramsData[key] = int(val)
+            else:
+              paramsData[key] = float(val)
           except Exception:
             continue
         getDiscreetClassifier(algoData['algorithm'], algoData['params'])
