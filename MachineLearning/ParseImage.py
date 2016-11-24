@@ -13,36 +13,35 @@ def getPixels(filename, size):
 def stringifyNums(nums):
 	return [str(x) for x in nums]
 
-def vectorizeImages(labeledFiles):
-	allFiles = []
-	labels = []
-	for key, value in labeledFiles.iteritems():
-		allFiles.extend(value)
-		labels.append((key,len(value)))
+def demoAddLabels(label, pixels):
+	result = [label]
+	result.extend(stringifyNums(pixels))
+	return result
 
-	# Find min X and Y sizes
-	minX, minY = (float('inf'), float('inf'))
-	for x in allFiles:
-		x, y = Image.open(x).size
-		minX = min(minX, x)
-		minY = min(minY, y)
-	size = (minX, minY)
+def vectorizeToAdd(allFiles,label):
+	size = (Constants.DEMO_SIZE,Constants.DEMO_SIZE)
 	# Get pixel data according to minimum size
 	pixelData = [getPixels(x, size) for x in allFiles]
-	# Set number of components
-	components = Constants.PCA_COMPONENTS
-	if(len(pixelData[0]) < Constants.PCA_COMPONENTS):
-		components = len(pixelData[0])
-	# Init PCA algo
-	pca = PCA(n_components=components,copy=False)
-	# Perform PCA and return the results
-	transformed = pca.fit_transform(pixelData)
+
+	# Add labels back in
+	labeledData = [demoAddLabels(label,x) for x in pixelData]
+	
+
+	# Compose string to save data in
+	data = [','.join(x) for x in labeledData]
+	return '\n'.join(data)
+
+def vectorizeForDemo(allFiles, labels):
+	size = (Constants.DEMO_SIZE,Constants.DEMO_SIZE)
+	# Get pixel data according to minimum size
+	pixelData = [getPixels(x, size) for x in allFiles]
+
 	# Add labels back
 	labeledData = []
 	pos = 0
 	for x in labels:
 		for i in range(x[1]):
-			newList = list(transformed[i + pos])
+			newList = list(pixelData[i + pos])
 			newList.insert(0,x[0])
 			labeledData.append(newList)
 		pos += x[1]
@@ -50,6 +49,48 @@ def vectorizeImages(labeledFiles):
 	# Compose string to save data in
 	data = [','.join(stringifyNums(x)) for x in labeledData]
 	return '\n'.join(data)
+
+def vectorizeImages(labeledFiles, demo=False):
+	allFiles = []
+	labels = []
+	for key, value in labeledFiles.iteritems():
+		allFiles.extend(value)
+		labels.append((key,len(value)))
+
+	if(demo):
+		return vectorizeForDemo(allFiles, labels)
+	else:
+		# Find min X and Y sizes
+		minX, minY = (float('inf'), float('inf'))
+		for x in allFiles:
+			x, y = Image.open(x).size
+			minX = min(minX, x)
+			minY = min(minY, y)
+		size = (minX, minY)
+
+		# Get pixel data according to minimum size
+		pixelData = [getPixels(x, size) for x in allFiles]
+		# Set number of components
+		components = Constants.PCA_COMPONENTS
+		if(len(pixelData[0]) < Constants.PCA_COMPONENTS):
+			components = len(pixelData[0])
+		# Init PCA algo
+		pca = PCA(n_components=components,copy=False)
+		# Perform PCA and return the results
+		transformed = pca.fit_transform(pixelData)
+		# Add labels back
+		labeledData = []
+		pos = 0
+		for x in labels:
+			for i in range(x[1]):
+				newList = list(transformed[i + pos])
+				newList.insert(0,x[0])
+				labeledData.append(newList)
+			pos += x[1]
+
+		# Compose string to save data in
+		data = [','.join(stringifyNums(x)) for x in labeledData]
+		return '\n'.join(data)
 
 def vectorizeForClassify(labeledFiles, unlabeledList, trainingPath=None, classifyingPath=None):
 	allFiles = []

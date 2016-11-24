@@ -1,7 +1,11 @@
 #!/usr/bin/python
 
 from bottle import *
+from Demo import classifyForDemo
 from MachineLearning.BuildClassifier import getDiscreetClassifier
+from MachineLearning.ParseImage import vectorizeToAdd
+from MachineLearning.Constants import Constants
+from MachineLearning.ParseImage import getPixels
 from tasks import runAlgoTest, classify, taskGetPoints, regression, process_photos, classifyImages, taskGetRegressionPoints
 import json
 from database import db
@@ -14,6 +18,8 @@ import zipfile
 import uuid
 from os import listdir
 from os.path import isfile, isdir, join
+from PIL import Image
+from tempfile import TemporaryFile
 
 #prefix = "/app"
 prefix = ""
@@ -107,12 +113,15 @@ def saveData():
   userName = getUsername()
   check_request_for_params(["name"])
   check_request_for_files(["upload"])
+
   csynapseName = re_space(request.params.get('name'))
   if "zipped" in request.POST and (request.params.get("zipped") in ["true", "True", "TRUE"]):
     zipped = True
   else:
     zipped = False
 
+  forDemo = request.params.get('forDemo')
+ 
   # Check if csynapse already has data
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
@@ -144,7 +153,6 @@ def saveData():
         if not os.path.exists(save_path):
           os.makedirs(save_path)
         file_path = "{path}/{file}.zip".format(path=save_path, file=unique_tmp_file)#upload.filename)
-        print "File Path: {}".format(file_path)
         upload.save(file_path)
         extract_path = "/tmp/{}".format(unique_extract_folder)
         zip_ref = zipfile.ZipFile(file_path, "r")
@@ -186,7 +194,7 @@ def saveData():
     userCollection.update_one({'_id':userName}, \
     {'$set':{'csynapses.{0}.multipart_data_tagmap'.format(csynapseName):tag_map}})
     
-    process_photos.delay(userName, csynapseName)
+    process_photos.delay(userName, csynapseName, forDemo)
 
   return HTTPResponse(status=200, body=json.dumps({"status":"ok", "message":"data added successfully"}))
 
@@ -488,7 +496,107 @@ def postLogout():
   session.delete()
   return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"logged out"}))
 
+@post('/demoDataAdd')
+def addDemoData():
+  dataFiles = request.files.getall('upload')
+  label = request.params.get('label')
+  name = request.params.get('name')
+  doc = db.custom.find_one({'name':name})
+  if(doc is None or dataFiles is None or label is None or name is None):
+    raise HTTPResponse(status=500, body=json.dumps({"status":"error","error":"check params need:upload,label,name"}))
+
+  oldMongoId = doc['trainingData']
+  # Convert each image into data
+  toAdd = vectorizeToAdd([x.file for x in dataFiles], label)
+
+  # Get the file
+  oldFile = db.files.get(ObjectId(oldMongoId))
+  # add the data
+  newMongoId = db.files.put(oldFile.read() + '\n' + toAdd)
+  # remove the old file
+  db.files.delete(oldMongoId)
+  # update the doc with the new file
+  db.custom.update_one({'name':name},
+    {'$set':{'trainingData':newMongoId}})
+  # get the data, add the new row(s) to it, save the data
+  res = HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"added data","datasetId":str(newMongoId)}))
+
+  res.set_header('Access-Control-Allow-Origin', '*')
+
+  return res
+
+@post('/demoDataToClassify')
+def demoClassifyImage():
+  dataFiles = request.files.getall('upload')
+  name = request.params.get('name')
+  doc = db.custom.find_one({'name':name})
+
+  newMongoIds = []
+  # Convert each file to jpg and save them into mongo
+  for x in dataFiles:
+    with TemporaryFile() as f:
+      img = Image.open(x.file).convert('RGB').resize((Constants.DEMO_SIZE,Constants.DEMO_SIZE))
+      img.save(f, 'JPEG')
+      f.flush()
+      f.seek(0)
+      newMongoIds.append(db.files.put(f.read()))
+
+  # If to classify doesn't exist add it, otherwise update it
+  doc = db.custom.find_one({'name':name})
+
+  if(doc is not None):
+    if('toClassify' in doc):
+      newMongoIds.extend(doc['toClassify'])
+
+  # Create new list
+  db.custom.update_one({'name':name},
+    {'$set':{'toClassify':newMongoIds}})
+
+  res = HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"added pictures"}))
+  res.set_header('Access-Control-Allow-Origin', '*')
+
+  return res
+
+@get('/demoImagesToClassify')
+def getImages():
+  name = request.params.get('name')
+  index = int(request.params.get('index'))
+  doc = db.custom.find_one({'name':name})
+
+  imageList = doc['toClassify']
+
+  nextIndex = index + 1
+  if(nextIndex >= len(imageList)):
+    nextIndex = 'none'
+
+  imageData = db.files.get(imageList[index]).read()
+  
+  res = HTTPResponse(body=imageData,status=200)
+  res.set_header('content_type', 'image/jpeg')
+  res.set_header('Access-Control-Allow-Origin', '*')
+  return res
+
+@get('/demoNumberToClassify')
+def getNumber():
+  name = request.params.get('name')
+  doc = db.custom.find_one({'name':name})
+
+  imageListLen = len(doc['toClassify'])
+  res = HTTPResponse(status=200, body=json.dumps({"status":"ok","number":imageListLen}))
+  res.set_header('Access-Control-Allow-Origin', '*')
+  return res
+
+@get('/demoClassifyImage')
+def demoClassify():
+  name = request.params.get('name')
+  i = int(request.params.get('index'))
+  doc = db.custom.find_one({'name':name})
+
+  result = classifyForDemo(db.files.get(doc['trainingData']),db.files.get(doc['toClassify'][i]))
+
+  res = HTTPResponse(status=200, body=json.dumps({"status":"ok","result":result}))
+  res.set_header('Access-Control-Allow-Origin', '*')
+  return res
+
 if __name__ == '__main__':
   run(host='', port=8888, debug=True, reloader=True, app=app)
-
-

@@ -8,3 +8,4 @@ class db:
 		self.users = self.client.csynapse.users
 		self.files = gridfs.GridFS(self.client.csynapse_files)
 		self.userAuth = self.client.auth.csynapse_users
+		self.custom = self.client.custom.data

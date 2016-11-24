@@ -1,2 +1,3 @@
 class Constants:
 	PCA_COMPONENTS = 250
+	DEMO_SIZE = 200

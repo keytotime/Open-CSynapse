@@ -37,7 +37,7 @@ def getMultiPartDataFiles(userName, csynapseName):
   return files
 
 @app.task
-def process_photos(userName, csynapseName):
+def process_photos(userName, csynapseName, forDemo=None):
   fileNames = getMultiPartDataFiles(userName,csynapseName)
   userCollection = db.users
   doc = userCollection.find_one({'_id':userName})
@@ -49,16 +49,19 @@ def process_photos(userName, csynapseName):
   for key, value in labelMap.iteritems():
     mappedFiles[key] = [getDataFile(mongoId) for mongoId in value]  
 
-  stringData = vectorizeImages(mappedFiles)
+  stringData = vectorizeImages(mappedFiles, forDemo)
   
   dataId = db.files.put(stringData)
   
-  userCollection.update_one({'_id':userName},\
-      {'$set':{'csynapses.{0}.data_id'.format(csynapseName):dataId}})
-  userCollection.update_one({'_id':userName},\
-      {'$set':{'csynapses.{0}.multipart_reduced'.format(csynapseName):1}})
- 
-  taskGetPoints(userName, csynapseName, dataId)
+  if(forDemo is not None):
+    db.custom.insert({'name':forDemo,'trainingData':dataId})
+  else:
+    userCollection.update_one({'_id':userName},\
+        {'$set':{'csynapses.{0}.data_id'.format(csynapseName):dataId}})
+    userCollection.update_one({'_id':userName},\
+        {'$set':{'csynapses.{0}.multipart_reduced'.format(csynapseName):1}})
+   
+    taskGetPoints(userName, csynapseName, dataId)
 
 @app.task
 def classify(newDataId, oldDataId, algorithm, params, userName, csynapseName, dataName):
