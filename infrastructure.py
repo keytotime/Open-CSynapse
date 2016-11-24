@@ -502,22 +502,30 @@ def addDemoData():
   label = request.params.get('label')
   name = request.params.get('name')
   doc = db.custom.find_one({'name':name})
-  if(doc is None or dataFiles is None or label is None or name is None):
+  if(dataFiles is None or label is None or name is None):
     raise HTTPResponse(status=500, body=json.dumps({"status":"error","error":"check params need:upload,label,name"}))
 
-  oldMongoId = doc['trainingData']
   # Convert each image into data
   toAdd = vectorizeToAdd([x.file for x in dataFiles], label)
 
-  # Get the file
-  oldFile = db.files.get(ObjectId(oldMongoId))
-  # add the data
-  newMongoId = db.files.put(oldFile.read() + '\n' + toAdd)
-  # remove the old file
-  db.files.delete(oldMongoId)
-  # update the doc with the new file
-  db.custom.update_one({'name':name},
+  if(doc is None):
+    newMongoId = db.files.put(toAdd)
+    db.custom.insert({'name':name, 'trainingData':newMongoId})
+  elif('trainingData' not in doc):
+    newMongoId = db.files.put(toAdd)
+    db.custom.update_one({'name':name},
     {'$set':{'trainingData':newMongoId}})
+  else:
+    oldMongoId = doc['trainingData']
+    # Get the file
+    oldFile = db.files.get(ObjectId(oldMongoId))
+    # add the data
+    newMongoId = db.files.put(oldFile.read() + '\n' + toAdd)
+    # remove the old file
+    db.files.delete(oldMongoId)
+    # update the doc with the new file
+    db.custom.update_one({'name':name},
+      {'$set':{'trainingData':newMongoId}})
   # get the data, add the new row(s) to it, save the data
   res = HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"added data","datasetId":str(newMongoId)}))
 
