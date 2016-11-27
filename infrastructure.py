@@ -134,7 +134,7 @@ def saveData():
   
   # check to see if we have image data
   uploads = request.files.getall('upload')
-  #print "uploads: {}".format(uploads)
+  
   fs = db.files
   files_list = []
   tag_map = {}
