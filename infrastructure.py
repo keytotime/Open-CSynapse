@@ -134,7 +134,6 @@ def saveData():
   
   # check to see if we have image data
   uploads = request.files.getall('upload')
-  #print "uploads: {}".format(uploads)
   fs = db.files
   files_list = []
   tag_map = {}
@@ -607,4 +606,4 @@ def demoClassify():
   return res
 
 if __name__ == '__main__':
-  run(host='', port=8888, debug=True, reloader=True, app=app)
+  run(host='0.0.0.0', port=8888, debug=True, reloader=True, app=app, server="cherrypy")

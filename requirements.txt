@@ -25,3 +25,4 @@ beaker==1.8.0
 pylibmc==1.5.1
 pickleshare==0.7.2
 Pillow==3.2.0
+CherryPy==8.1.2
