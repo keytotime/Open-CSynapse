@@ -20,6 +20,8 @@ import uuid
 app = Celery('tasks', broker='amqp://guest@queue//')
 mongoPort = 27017
 db = db('mongo', mongoPort, connect=False)
+externalAlgorithms = ['Adaline', 'Hebbian', 'Maxnet', 'Multilayer_Neural_Network_Gaussian',
+'Multilayer_Neural_Network_Linear','Multilayer_Neural_Network_sin','Tan', 'layer', 'rbf_neural_network']
 
 # Returns path to file of data
 def getDataFile(mongoId):
@@ -68,7 +70,7 @@ def classify(newDataId, oldDataId, algorithm, params, userName, csynapseName, da
   result = None
   finalString = ''
   # special case for homegrown algorithms
-  if(algorithm in ['adaline', 'hebbian', 'multiLayerPerceptronSig', 'multiLayerPerceptronTan']):
+  if(algorithm in externalAlgorithms):
     # training data
     trainingPath = getDataFile(oldDataId)
 
@@ -145,7 +147,7 @@ def classifyImages(dataIds, oldDataId, algorithm, params, userName, csynapseName
   finalString = ''
 
   # special case for homegrown algorithms
-  if(algorithm in ['adaline', 'hebbian', 'multiLayerPerceptronSig', 'multiLayerPerceptronTan']):
+  if(algorithm in externalAlgorithms):
     # Get file paths for old and new data
     unique = str(uuid.uuid4())
     trainingPath = 'train' + unique
