@@ -236,7 +236,7 @@ def runAlgoTest(algoData, userName, csynapseName):
   
   ret = {}
   # special case for homegrown algos
-  if(algorithm in externalExecutables):
+  if(algorithm in externalAlgorithms):
     # get file
     path = getDataFile(dataId)
     resultsPath = path + 'results'
