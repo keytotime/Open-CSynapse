@@ -236,7 +236,7 @@ def runAlgoTest(algoData, userName, csynapseName):
   
   ret = {}
   # special case for homegrown algos
-  if(algorithm in ['adaline', 'hebbian', 'multiLayerPerceptronSig', 'multiLayerPerceptronTan']):
+  if(algorithm in externalExecutables):
     # get file
     path = getDataFile(dataId)
     resultsPath = path + 'results'
