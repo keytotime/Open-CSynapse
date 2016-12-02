@@ -21,7 +21,7 @@ app = Celery('tasks', broker='amqp://guest@queue//')
 mongoPort = 27017
 db = db('mongo', mongoPort, connect=False)
 externalAlgorithms = ['Adaline', 'Hebbian', 'Maxnet', 'Multilayer_Neural_Network_Gaussian',
-'Multilayer_Neural_Network_Linear','Multilayer_Neural_Network_sin','Tan', 'layer', 'rbf_neural_network']
+'Multilayer_Neural_Network_Linear','Multilayer_Neural_Network_sin','Multi_Neural_Network_Step','Tan', 'layer', 'rbf_neural_network']
 
 # Returns path to file of data
 def getDataFile(mongoId):

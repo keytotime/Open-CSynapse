@@ -495,6 +495,10 @@ def postLogout():
   session.delete()
   return HTTPResponse(status=200, body=json.dumps({"status":"ok","message":"logged out"}))
 
+###
+### Demo Routes
+###
+
 @post('/demoDataAdd')
 def addDemoData():
   dataFiles = request.files.getall('upload')
@@ -602,6 +606,15 @@ def demoClassify():
   result = classifyForDemo(db.files.get(doc['trainingData']),db.files.get(doc['toClassify'][i]))
 
   res = HTTPResponse(status=200, body=json.dumps({"status":"ok","result":result}))
+  res.set_header('Access-Control-Allow-Origin', '*')
+  return res
+
+@post('/demoDeleteTrainingData')
+def deleteTraining():
+  name = request.params.get('name')
+  db.custom.delete_one({'name':name})
+
+  res = HTTPResponse(status=200, body=json.dumps({"status":"ok","message":'deleted data'}))
   res.set_header('Access-Control-Allow-Origin', '*')
   return res
 
