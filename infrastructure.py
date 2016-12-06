@@ -601,9 +601,14 @@ def getNumber():
 def demoClassify():
   name = request.params.get('name')
   i = int(request.params.get('index'))
+  algoName = request.params.get('algoName')
   doc = db.custom.find_one({'name':name})
 
-  result = classifyForDemo(db.files.get(doc['trainingData']),db.files.get(doc['toClassify'][i]))
+  result = None
+  if(algoName != None):
+    result = classifyForDemo(db.files.get(doc['trainingData']),db.files.get(doc['toClassify'][i]), algoName)
+  else:
+    result = classifyForDemo(db.files.get(doc['trainingData']),db.files.get(doc['toClassify'][i]))
 
   res = HTTPResponse(status=200, body=json.dumps({"status":"ok","result":result}))
   res.set_header('Access-Control-Allow-Origin', '*')
