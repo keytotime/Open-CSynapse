@@ -192,8 +192,8 @@ def classifyImages(dataIds, oldDataId, algorithm, params, userName, csynapseName
 
 @app.task
 def runAlgoTest(algoData, userName, csynapseName):
+  newObjectId = str(ObjectId())
   try:
-    newObjectId = str(ObjectId())
     userCollection = db.users
     
     algorithm = algoData['algorithm']
