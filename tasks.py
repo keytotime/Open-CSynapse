@@ -16,6 +16,8 @@ import itertools
 from numpy import transpose
 from time import sleep, gmtime, strftime
 import uuid
+import sys
+import traceback
 
 app = Celery('tasks', broker='amqp://guest@queue//')
 mongoPort = 27017
@@ -190,81 +192,88 @@ def classifyImages(dataIds, oldDataId, algorithm, params, userName, csynapseName
 
 @app.task
 def runAlgoTest(algoData, userName, csynapseName):
-  
   newObjectId = str(ObjectId())
-  userCollection = db.users
-  
-  algorithm = algoData['algorithm']
-  params = {}
-  if('params' in algoData):
-    params = algoData['params']
+  try:
+    userCollection = db.users
+    
+    algorithm = algoData['algorithm']
+    params = {}
+    if('params' in algoData):
+      params = algoData['params']
 
-  # userCollection = db.users
-  set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
-  userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'algoId':algorithm, 'params':params, 'status':"processing", "last_updated":set_time}}})
-  
-  doc = userCollection.find_one({'_id':userName})
-  #the following is ATROCIOUS code, but should work for now.
-  #need better reporting tools to do better
-  if "data_id" not in (doc['csynapses'][csynapseName]).keys() and "multipart_data" not in (doc['csynapses'][csynapseName]).keys():
-    raise DataException("Data Not Available")
+    # userCollection = db.users
     set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
     userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
-  found = False
-  if "data_id" in (doc['csynapses'][csynapseName]).keys():
-    found = True
-  cycles_to_wait = 20
-  cycles = 0
-  if not found:
-    while not found:
-      doc = userCollection.find_one({'_id':userName})
-      if ("multipart_data" in (doc['csynapses'][csynapseName]).keys() and "multipart_reduced" in (doc['csynapses'][csynapseName]).keys()):
-        found = True
-      else:
-        cycles = cycles + 1
-      if cycles == cycles_to_wait:
-        raise WaitException("Took Too Long to Generate Data")
-        set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
-        userCollection.update_one({'_id':userName}, \
-        {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
-      sleep(1)
-    sleep(3)
+      {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'algoId':algorithm, 'params':params, 'status':"processing", "last_updated":set_time}}})
     
-  dataId = doc['csynapses'][csynapseName]['data_id']
-  
-  ret = {}
-  # special case for homegrown algos
-  if(algorithm in externalAlgorithms):
-    # get file
-    path = getDataFile(dataId)
-    resultsPath = path + 'results'
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    runEx.execute('java -jar {3}/externalExecutables/{0}.jar {1} {2}'.format(algorithm,path,resultsPath,script_dir))
-    # get results from file
-    with open(resultsPath, 'r') as f:
-      data = f.read()
-      score, time = data.split(',')
-      ret['score'] = float(score) / 100
-      ret['time'] = float(time) / 1000
-  else:
-    # Instantiate Classifier
-    alg = getDiscreetClassifier(algorithm, params)
-    # Get data from file
-    data = cleanData(getDataFile(dataId))
-    # Run Cross Validation
-    meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
-    ret['score'] = meanScoreTime.meanScore
-    ret['time'] = meanScoreTime.timeTaken
+    doc = userCollection.find_one({'_id':userName})
+    #the following is ATROCIOUS code, but should work for now.
+    #need better reporting tools to do better
+    if "data_id" not in (doc['csynapses'][csynapseName]).keys() and "multipart_data" not in (doc['csynapses'][csynapseName]).keys():
+      
+      set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+      userCollection.update_one({'_id':userName}, \
+      {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
+      raise DataException("Data Not Available")
+    found = False
+    if "data_id" in (doc['csynapses'][csynapseName]).keys():
+      found = True
+    cycles_to_wait = 20
+    cycles = 0
+    if not found:
+      while not found:
+        doc = userCollection.find_one({'_id':userName})
+        if ("multipart_data" in (doc['csynapses'][csynapseName]).keys() and "multipart_reduced" in (doc['csynapses'][csynapseName]).keys()):
+          found = True
+        else:
+          cycles = cycles + 1
+        if cycles == cycles_to_wait:
+          
+          set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+          userCollection.update_one({'_id':userName}, \
+          {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
+          raise WaitException("Took Too Long to Generate Data")
+        sleep(1)
+      sleep(3)
+      
+    dataId = doc['csynapses'][csynapseName]['data_id']
+    
+    ret = {}
+    # special case for homegrown algos
+    if(algorithm in externalAlgorithms):
+      # get file
+      path = getDataFile(dataId)
+      resultsPath = path + 'results'
+      script_dir = os.path.dirname(os.path.realpath(__file__))
+      runEx.execute('java -jar {3}/externalExecutables/{0}.jar {1} {2}'.format(algorithm,path,resultsPath,script_dir))
+      # get results from file
+      with open(resultsPath, 'r') as f:
+        data = f.read()
+        score, time = data.split(',')
+        ret['score'] = float(score) / 100
+        ret['time'] = float(time) / 1000
+    else:
+      # Instantiate Classifier
+      alg = getDiscreetClassifier(algorithm, params)
+      # Get data from file
+      data = cleanData(getDataFile(dataId))
+      # Run Cross Validation
+      meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
+      ret['score'] = meanScoreTime.meanScore
+      ret['time'] = meanScoreTime.timeTaken
 
-  
-  # save result in db
-  set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
-  userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
-    'time':ret['time'], 'algoId':algorithm, 'params':params, 'status':"complete", "last_updated":set_time}}})
-  return
+    
+    # save result in db
+    set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+    userCollection.update_one({'_id':userName}, \
+      {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
+      'time':ret['time'], 'algoId':algorithm, 'params':params, 'status':"complete", "last_updated":set_time}}})
+    return
+  except:
+    tb = traceback.format_exc()#sys.exc_info()[0]
+    set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+    userCollection.update_one({'_id':userName}, \
+      {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "error_text":"{}".format(tb), "algoId":algorithm, "params":params, "last_updated":set_time}}})
 
 @app.task
 def taskGetPoints(userName, csynapseName, mongoId):
