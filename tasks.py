@@ -192,53 +192,54 @@ def classifyImages(dataIds, oldDataId, algorithm, params, userName, csynapseName
 
 @app.task
 def runAlgoTest(algoData, userName, csynapseName):
-  
-  newObjectId = str(ObjectId())
-  userCollection = db.users
-  
-  algorithm = algoData['algorithm']
-  params = {}
-  if('params' in algoData):
-    params = algoData['params']
+  try:
+    newObjectId = str(ObjectId())
+    userCollection = db.users
+    
+    algorithm = algoData['algorithm']
+    params = {}
+    if('params' in algoData):
+      params = algoData['params']
 
-  # userCollection = db.users
-  set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
-  userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'algoId':algorithm, 'params':params, 'status':"processing", "last_updated":set_time}}})
-  
-  doc = userCollection.find_one({'_id':userName})
-  #the following is ATROCIOUS code, but should work for now.
-  #need better reporting tools to do better
-  if "data_id" not in (doc['csynapses'][csynapseName]).keys() and "multipart_data" not in (doc['csynapses'][csynapseName]).keys():
-    raise DataException("Data Not Available")
+    # userCollection = db.users
     set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
     userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
-  found = False
-  if "data_id" in (doc['csynapses'][csynapseName]).keys():
-    found = True
-  cycles_to_wait = 20
-  cycles = 0
-  if not found:
-    while not found:
-      doc = userCollection.find_one({'_id':userName})
-      if ("multipart_data" in (doc['csynapses'][csynapseName]).keys() and "multipart_reduced" in (doc['csynapses'][csynapseName]).keys()):
-        found = True
-      else:
-        cycles = cycles + 1
-      if cycles == cycles_to_wait:
-        raise WaitException("Took Too Long to Generate Data")
-        set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
-        userCollection.update_one({'_id':userName}, \
-        {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
-      sleep(1)
-    sleep(3)
+      {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'algoId':algorithm, 'params':params, 'status':"processing", "last_updated":set_time}}})
     
-  dataId = doc['csynapses'][csynapseName]['data_id']
-  
-  ret = {}
-  # special case for homegrown algos
-  try:
+    doc = userCollection.find_one({'_id':userName})
+    #the following is ATROCIOUS code, but should work for now.
+    #need better reporting tools to do better
+    if "data_id" not in (doc['csynapses'][csynapseName]).keys() and "multipart_data" not in (doc['csynapses'][csynapseName]).keys():
+      
+      set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+      userCollection.update_one({'_id':userName}, \
+      {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
+      raise DataException("Data Not Available")
+    found = False
+    if "data_id" in (doc['csynapses'][csynapseName]).keys():
+      found = True
+    cycles_to_wait = 20
+    cycles = 0
+    if not found:
+      while not found:
+        doc = userCollection.find_one({'_id':userName})
+        if ("multipart_data" in (doc['csynapses'][csynapseName]).keys() and "multipart_reduced" in (doc['csynapses'][csynapseName]).keys()):
+          found = True
+        else:
+          cycles = cycles + 1
+        if cycles == cycles_to_wait:
+          
+          set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+          userCollection.update_one({'_id':userName}, \
+          {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "last_updated":set_time}}})
+          raise WaitException("Took Too Long to Generate Data")
+        sleep(1)
+      sleep(3)
+      
+    dataId = doc['csynapses'][csynapseName]['data_id']
+    
+    ret = {}
+    # special case for homegrown algos
     if(algorithm in externalAlgorithms):
       # get file
       path = getDataFile(dataId)
