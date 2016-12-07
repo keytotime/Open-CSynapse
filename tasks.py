@@ -16,6 +16,8 @@ import itertools
 from numpy import transpose
 from time import sleep, gmtime, strftime
 import uuid
+import sys
+import traceback
 
 app = Celery('tasks', broker='amqp://guest@queue//')
 mongoPort = 27017
@@ -236,35 +238,41 @@ def runAlgoTest(algoData, userName, csynapseName):
   
   ret = {}
   # special case for homegrown algos
-  if(algorithm in externalAlgorithms):
-    # get file
-    path = getDataFile(dataId)
-    resultsPath = path + 'results'
-    script_dir = os.path.dirname(os.path.realpath(__file__))
-    runEx.execute('java -jar {3}/externalExecutables/{0}.jar {1} {2}'.format(algorithm,path,resultsPath,script_dir))
-    # get results from file
-    with open(resultsPath, 'r') as f:
-      data = f.read()
-      score, time = data.split(',')
-      ret['score'] = float(score) / 100
-      ret['time'] = float(time) / 1000
-  else:
-    # Instantiate Classifier
-    alg = getDiscreetClassifier(algorithm, params)
-    # Get data from file
-    data = cleanData(getDataFile(dataId))
-    # Run Cross Validation
-    meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
-    ret['score'] = meanScoreTime.meanScore
-    ret['time'] = meanScoreTime.timeTaken
+  try:
+    if(algorithm in externalAlgorithms):
+      # get file
+      path = getDataFile(dataId)
+      resultsPath = path + 'results'
+      script_dir = os.path.dirname(os.path.realpath(__file__))
+      runEx.execute('java -jar {3}/externalExecutables/{0}.jar {1} {2}'.format(algorithm,path,resultsPath,script_dir))
+      # get results from file
+      with open(resultsPath, 'r') as f:
+        data = f.read()
+        score, time = data.split(',')
+        ret['score'] = float(score) / 100
+        ret['time'] = float(time) / 1000
+    else:
+      # Instantiate Classifier
+      alg = getDiscreetClassifier(algorithm, params)
+      # Get data from file
+      data = cleanData(getDataFile(dataId))
+      # Run Cross Validation
+      meanScoreTime = doShuffleCrossValidation(alg, data.data, data.target)
+      ret['score'] = meanScoreTime.meanScore
+      ret['time'] = meanScoreTime.timeTaken
 
-  
-  # save result in db
-  set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
-  userCollection.update_one({'_id':userName}, \
-    {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
-    'time':ret['time'], 'algoId':algorithm, 'params':params, 'status':"complete", "last_updated":set_time}}})
-  return
+    
+    # save result in db
+    set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+    userCollection.update_one({'_id':userName}, \
+      {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'score':ret['score'],\
+      'time':ret['time'], 'algoId':algorithm, 'params':params, 'status':"complete", "last_updated":set_time}}})
+    return
+  except:
+    tb = traceback.format_exc()#sys.exc_info()[0]
+    set_time = strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
+    userCollection.update_one({'_id':userName}, \
+      {'$set':{'csynapses.{0}.algorithms.{1}'.format(csynapseName,newObjectId):{'status':"error", "error_text":"{}".format(tb), "algoId":algorithm, "params":params, "last_updated":set_time}}})
 
 @app.task
 def taskGetPoints(userName, csynapseName, mongoId):
