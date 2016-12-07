@@ -66,8 +66,8 @@ def regressionData(filename):
 		if(not hasHeader):
 			raise ValueError('No Headers in File')
 
-		headers = [x.rstrip() for x in headers.split(',')]
-		firstLine = [x.rstrip() for x in f.readline().split(',')]
+		headers = [x.strip() for x in headers.split(',')]
+		firstLine = [x.strip() for x in f.readline().split(',')]
 		nonFloatIndexes = set()
 		removeTheseHeaders = set()
 		for index, x in enumerate(firstLine):

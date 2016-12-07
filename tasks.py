@@ -317,8 +317,8 @@ def regression(userName, csynapseName, mongoId):
   finalList = []
   for x in combinations:
     d = {}
-    d['h1'] = x[0][1]
-    d['h2'] =  x[1][1]
+    d['h1'] = x[0][1].strip()
+    d['h2'] =  x[1][1].strip()
     regResults = reg(transposedData[x[0][0]], transposedData[x[1][0]])
     d['r'] = regResults.r
     d['p'] = regResults.p
