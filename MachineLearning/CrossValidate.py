@@ -7,8 +7,15 @@ from collections import namedtuple
 
 # Does crossvalidation by randomling choosing samples from the data to hold out
 def doShuffleCrossValidation(classifier, data, target, testSize = 0.1, epochs = 100):
-	cxShuffle = cross_validation.ShuffleSplit(len(data),n_iter=epochs,test_size=testSize)
-	return getMeanScore(classifier, data, target, cxShuffle)
+	# try cross validation 200 times before failing
+	numTries = 200
+	for x in range(numTries):
+		try:
+			cxShuffle = cross_validation.ShuffleSplit(len(data),n_iter=epochs,test_size=testSize)
+			return getMeanScore(classifier, data, target, cxShuffle)
+		except ValueError:
+			pass
+	raise ValueError('Cross validation failed, need more than one type of label')
 
 def doFoldCrossValidation(classifier, data, target, numFolds = 10, shuffleFirst=True):
 	cxFold = cross_validation.KFold(len(data), n_folds=numFolds, shuffle=shuffleFirst)
